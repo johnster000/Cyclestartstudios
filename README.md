@@ -86,6 +86,16 @@ Still to do, once:
 
 Until DNS is in place the site is live at https://johnster000.github.io/Cyclestartstudios/.
 
+## Troubleshooting
+
+- **GitHub 404 at the custom domain or at johnster000.github.io/Cyclestartstudios.** No Pages build has
+  processed `gh-pages` yet, or the last one failed. Check the **Actions** tab for a run named
+  *pages build and deployment*. If there is none, push any commit to `gh-pages` directly
+  (`git push origin main:gh-pages`); pushes made by the workflow token do not start the very first build.
+- **Custom domain shows the registrar's parking page.** DNS is still pointing at the registrar. Add the
+  records above and wait for propagation (minutes to a few hours).
+- **Games load but a game is stale.** Run `./sync-games.sh`, commit, push to `main`.
+
 ## Local preview
 
 ```sh
