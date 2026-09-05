@@ -70,7 +70,8 @@ GitHub Pages and sets the custom domain by itself. Three things still need a hum
    **Settings → General → Danger Zone → Change repository visibility → Make public**, then re-run the
    workflow from the **Actions** tab (or push any commit to `main`). Everything in this repo is already
    served to every visitor's browser once the site is live, so making it public exposes nothing extra.
-2. **Default branch.** On GitHub go to **Settings → General → Default branch** and switch it to `main`.
+2. **Default branch.** On GitHub go to **Settings → Branches**. At the top, under **Default branch**, click the
+   swap-arrows icon next to the current name, pick `main`, and confirm.
 3. **DNS.** At your domain registrar add these records:
 
    | Type  | Host | Value |
