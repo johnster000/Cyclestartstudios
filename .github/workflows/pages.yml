@@ -1,8 +1,9 @@
 name: Publish to GitHub Pages
 
-# GitHub Pages serves the gh-pages branch. This mirrors main into it on every push,
-# so main stays the only branch anyone edits. Pages then builds automatically and
-# picks up the custom domain from the CNAME file.
+# Works with either Pages mode. It asks GitHub how Pages is configured, then:
+#   - source "GitHub Actions": uploads the repo as a Pages artifact and deploys it
+#   - source "branch":         force-pushes main to gh-pages, which Pages then builds
+# Either way, main is the only branch anyone edits.
 
 on:
   push:
@@ -11,13 +12,56 @@ on:
 
 permissions:
   contents: write
+  pages: write
+  id-token: write
 
 concurrency:
   group: pages
   cancel-in-progress: true
 
 jobs:
-  mirror:
+  detect:
+    runs-on: ubuntu-latest
+    outputs:
+      build_type: ${{ steps.pages.outputs.build_type }}
+    steps:
+      - name: Read Pages configuration
+        id: pages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if json="$(gh api "repos/${{ github.repository }}/pages" 2>/dev/null)"; then
+            echo "$json" | jq '{build_type, status, cname, html_url, source}'
+            echo "build_type=$(echo "$json" | jq -r '.build_type // "legacy"')" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::Could not read Pages settings; assuming branch mode."
+            echo "build_type=legacy" >> "$GITHUB_OUTPUT"
+          fi
+
+  deploy-actions:
+    needs: detect
+    if: needs.detect.outputs.build_type == 'workflow'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set custom domain from CNAME
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api -X PUT "repos/${{ github.repository }}/pages" -f cname="$(tr -d '[:space:]' < CNAME)" \
+            || echo "::warning::Could not set custom domain automatically. Set it under Settings > Pages."
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+      - id: deployment
+        uses: actions/deploy-pages@v4
+
+  deploy-branch:
+    needs: detect
+    if: needs.detect.outputs.build_type != 'workflow'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

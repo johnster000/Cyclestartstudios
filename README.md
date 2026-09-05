@@ -62,12 +62,14 @@ re-capture the thumbnail (below) if the title screen changed.
 
 ## One-time setup
 
-GitHub Pages serves the `gh-pages` branch. `.github/workflows/pages.yml` mirrors `main` into `gh-pages` on
-every push, so `main` is the only branch anyone edits. Pushing `gh-pages` was enough to switch Pages on by
-itself, so nothing in **Settings → Pages** needs changing. The CNAME file sets the custom domain.
+`.github/workflows/pages.yml` publishes the site on every push to `main`. It reads the Pages configuration
+and adapts: if the Pages source is **GitHub Actions** it deploys the repo as a Pages artifact; if the source
+is a **branch** it force-pushes `main` to `gh-pages` for Pages to build. `main` is the only branch anyone
+edits either way.
 
 Already done: the repo is public (GitHub Pages on a private repo needs a paid plan; everything here is
-served to every visitor's browser anyway, so public exposes nothing extra) and `main` is the default branch.
+served to every visitor's browser anyway, so public exposes nothing extra), `main` is the default branch,
+and Pages is switched on.
 
 Still to do, once:
 
@@ -81,17 +83,19 @@ Still to do, once:
    | A     | @    | 185.199.111.153 |
    | CNAME | www  | johnster000.github.io |
 
-2. **HTTPS.** Once DNS has propagated, open **Settings → Pages**, confirm the custom domain shows a green
-   check, and tick **Enforce HTTPS** (the certificate can take up to an hour to issue).
+2. **Custom domain and HTTPS.** Open **Settings → Pages**. If *Custom domain* is empty, enter
+   `cyclestartstudios.com` and save (the workflow tries to do this itself, but may lack permission). Once
+   DNS has propagated and the domain shows a green check, tick **Enforce HTTPS** (the certificate can take
+   up to an hour to issue).
 
 Until DNS is in place the site is live at https://johnster000.github.io/Cyclestartstudios/.
 
 ## Troubleshooting
 
-- **GitHub 404 at the custom domain or at johnster000.github.io/Cyclestartstudios.** No Pages build has
-  processed `gh-pages` yet, or the last one failed. Check the **Actions** tab for a run named
-  *pages build and deployment*. If there is none, push any commit to `gh-pages` directly
-  (`git push origin main:gh-pages`); pushes made by the workflow token do not start the very first build.
+- **GitHub 404 at the custom domain or at johnster000.github.io/Cyclestartstudios.** Nothing has been
+  deployed yet, or the last deploy failed. Open the **Actions** tab: the *Publish to GitHub Pages* run
+  prints the Pages configuration in its *detect* job and must end green. In branch mode there should also
+  be a run named *pages build and deployment*.
 - **Custom domain shows the registrar's parking page.** DNS is still pointing at the registrar. Add the
   records above and wait for propagation (minutes to a few hours).
 - **Games load but a game is stale.** Run `./sync-games.sh`, commit, push to `main`.
