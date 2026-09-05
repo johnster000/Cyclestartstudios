@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#1a1420">
+<title>Pocket Dungeons</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%231a1420'/%3E%3Cpolygon points='8,1 15,5 15,11 8,15 1,11 1,5' fill='%23e0a33b'/%3E%3Ctext x='8' y='11.5' font-size='8' text-anchor='middle' fill='%231a1420' font-family='monospace' font-weight='bold'%3E20%3C/text%3E%3C/svg%3E">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app">
+  <canvas id="game"></canvas>
+
+  <!-- HUD (exploration / combat) -->
+  <div id="hud" class="hidden">
+    <div id="party-bar"></div>
+    <div id="top-right">
+      <button class="icon-btn" id="btn-menu" title="Menu">☰</button>
+      <button class="icon-btn" id="btn-sheet" title="Character">⚔</button>
+      <button class="icon-btn" id="btn-bag" title="Inventory">🎒</button>
+      <button class="icon-btn" id="btn-quests" title="Quests">📜</button>
+      <button class="icon-btn" id="btn-log" title="Adventure log (L)">📖</button>
+    </div>
+    <div id="location-label"></div>
+    <div id="turn-banner" class="hidden"></div>
+    <div id="action-bar" class="hidden"></div>
+    <div id="dpad">
+      <button data-dir="up">▲</button>
+      <button data-dir="left">◀</button>
+      <button data-dir="down">▼</button>
+      <button data-dir="right">▶</button>
+    </div>
+    <div id="rotate">
+      <button id="rot-left" title="Rotate view (Q)">⟲</button>
+      <button id="rot-right" title="Rotate view (E)">⟳</button>
+    </div>
+    <div id="log-flash"></div>
+    <div id="context-actions"></div>
+  </div>
+
+  <!-- Modal layer for menus / dialogs -->
+  <canvas id="dice-tray"></canvas>
+  <button id="roll-prompt" class="hidden">🎲 Roll</button>
+  <div id="modal-layer" class="hidden"></div>
+
+  <!-- Title screen -->
+  <div id="title" class="screen">
+    <div class="title-art">
+      <div class="title-d20">20</div>
+      <h1>Pocket<br>Dungeons</h1>
+      <p class="tagline">A complete adventure in twenty minutes.</p>
+    </div>
+    <div class="title-menu">
+      <button id="btn-continue" class="big">Continue Adventure</button>
+      <button id="btn-new" class="big primary">New Hero</button>
+      <button id="btn-howto" class="big">How to Play</button>
+    </div>
+    <p class="footer">Roll well, adventurer.</p>
+  </div>
+</div>
+
+<script src="js/core/util.js"></script>
+<script src="js/core/rng.js"></script>
+<script src="js/core/dice.js"></script>
+<script src="js/data/races.js"></script>
+<script src="js/data/classes.js"></script>
+<script src="js/data/spells.js"></script>
+<script src="js/data/items.js"></script>
+<script src="js/data/monsters.js"></script>
+<script src="js/data/names.js"></script>
+<script src="js/data/rooms.js"></script>
+<script src="js/data/worldmap.js"></script>
+<script src="js/data/story.js"></script>
+<script src="js/engine/sprites.js"></script>
+<script src="js/engine/props3d.js"></script>
+<script src="js/engine/renderer.js"></script>
+<script src="js/engine/audio.js"></script>
+<script src="js/engine/dice3d.js"></script>
+<script src="js/engine/save.js"></script>
+<script src="js/game/character.js"></script>
+<script src="js/game/rules.js"></script>
+<script src="js/game/world.js"></script>
+<script src="js/game/dungeon.js"></script>
+<script src="js/game/combat.js"></script>
+<script src="js/game/quests.js"></script>
+<script src="js/game/ui.js"></script>
+<script src="js/game/game.js"></script>
+</body>
+</html>

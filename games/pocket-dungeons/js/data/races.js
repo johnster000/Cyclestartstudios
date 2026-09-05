@@ -1,0 +1,46 @@
+/* Races — 5e SRD-inspired. Ability bonuses, speed, traits. `feats` are machine-readable flags used by rules.js. */
+window.SKILLS = {
+  acrobatics: { name: 'Acrobatics', ab: 'dex' }, animalHandling: { name: 'Animal Handling', ab: 'wis' }, arcana: { name: 'Arcana', ab: 'int' },
+  athletics: { name: 'Athletics', ab: 'str' }, deception: { name: 'Deception', ab: 'cha' }, history: { name: 'History', ab: 'int' },
+  insight: { name: 'Insight', ab: 'wis' }, intimidation: { name: 'Intimidation', ab: 'cha' }, investigation: { name: 'Investigation', ab: 'int' },
+  medicine: { name: 'Medicine', ab: 'wis' }, nature: { name: 'Nature', ab: 'int' }, perception: { name: 'Perception', ab: 'wis' },
+  performance: { name: 'Performance', ab: 'cha' }, persuasion: { name: 'Persuasion', ab: 'cha' }, religion: { name: 'Religion', ab: 'int' },
+  sleightOfHand: { name: 'Sleight of Hand', ab: 'dex' }, stealth: { name: 'Stealth', ab: 'dex' }, survival: { name: 'Survival', ab: 'wis' },
+};
+window.ABILITIES = ['str', 'dex', 'con', 'int', 'wis', 'cha'];
+window.ABILITY_NAMES = { str: 'Strength', dex: 'Dexterity', con: 'Constitution', int: 'Intelligence', wis: 'Wisdom', cha: 'Charisma' };
+
+window.RACES = {
+  human: { id: 'human', name: 'Human', bonus: { str: 1, dex: 1, con: 1, int: 1, wis: 1, cha: 1 }, speed: 30, size: 'M', darkvision: 0,
+    skinTones: ['#f1c9a5', '#d9a37a', '#b97a52', '#8d5a3b', '#5c3a25'],
+    traits: [{ name: 'Versatile', desc: '+1 to every ability score.' }, { name: 'Extra Language', desc: 'You get along with everyone at the tavern.' }],
+    feats: {}, desc: 'Adaptable and ambitious. Humans are the most common folk in Hollowmere.' },
+  elf: { id: 'elf', name: 'Elf', bonus: { dex: 2, wis: 1 }, speed: 30, size: 'M', darkvision: 60,
+    skinTones: ['#f6dcc4', '#e9c4a4', '#cfa27f', '#a87b5c'],
+    traits: [{ name: 'Keen Senses', desc: 'Proficiency in Perception.' }, { name: 'Fey Ancestry', desc: 'Advantage on saves against being charmed; magic cannot put you to sleep.' }, { name: 'Darkvision', desc: 'See in the dark up to 60 ft.' }, { name: 'Trance', desc: 'A short rest restores an extra hit die.' }],
+    feats: { skillProf: ['perception'], feyAncestry: true, tranceRest: true }, desc: 'Graceful, long-lived, and hard to fool.' },
+  dwarf: { id: 'dwarf', name: 'Dwarf', bonus: { con: 2, wis: 1 }, speed: 25, size: 'M', darkvision: 60,
+    skinTones: ['#e8b892', '#c98f66', '#a9714b', '#7d4f33'],
+    traits: [{ name: 'Dwarven Resilience', desc: 'Advantage on saves vs poison; resistance to poison damage.' }, { name: 'Dwarven Toughness', desc: '+1 hit point per level.' }, { name: 'Stonecunning', desc: 'Double proficiency on History checks about stonework and dungeons.' }, { name: 'Darkvision', desc: 'See in the dark up to 60 ft.' }],
+    feats: { poisonResist: true, hpPerLevel: 1, stonecunning: true }, desc: 'Stout, stubborn, and impossible to poison at the tavern.' },
+  halfling: { id: 'halfling', name: 'Halfling', bonus: { dex: 2, cha: 1 }, speed: 25, size: 'S', darkvision: 0,
+    skinTones: ['#f1c9a5', '#d9a37a', '#b97a52', '#8d5a3b'],
+    traits: [{ name: 'Lucky', desc: 'When you roll a natural 1 on an attack, check, or save, reroll it.' }, { name: 'Brave', desc: 'Advantage on saves against being frightened.' }, { name: 'Nimble', desc: 'Move through the space of larger creatures.' }],
+    feats: { lucky: true, brave: true, nimble: true }, desc: 'Small, cheerful, and suspiciously lucky.' },
+  gnome: { id: 'gnome', name: 'Gnome', bonus: { int: 2, dex: 1 }, speed: 25, size: 'S', darkvision: 60,
+    skinTones: ['#f1c9a5', '#e0b08a', '#c48a63', '#a06a48'],
+    traits: [{ name: 'Gnome Cunning', desc: 'Advantage on Int, Wis and Cha saves against magic.' }, { name: 'Tinker', desc: 'Advantage on checks to disarm traps and pick locks.' }, { name: 'Darkvision', desc: 'See in the dark up to 60 ft.' }],
+    feats: { gnomeCunning: true, tinker: true }, desc: 'Curious inventors who poke everything in a dungeon.' },
+  halforc: { id: 'halforc', name: 'Half-Orc', bonus: { str: 2, con: 1 }, speed: 30, size: 'M', darkvision: 60,
+    skinTones: ['#8fa66a', '#7c9457', '#6b7f4a', '#a58a5a'],
+    traits: [{ name: 'Relentless Endurance', desc: 'Once per long rest, drop to 1 HP instead of 0.' }, { name: 'Savage Attacks', desc: 'Roll one extra weapon damage die on a critical hit.' }, { name: 'Menacing', desc: 'Proficiency in Intimidation.' }, { name: 'Darkvision', desc: 'See in the dark up to 60 ft.' }],
+    feats: { relentless: true, savageAttacks: true, skillProf: ['intimidation'] }, desc: 'Big, loud, and very good at hitting things.' },
+  tiefling: { id: 'tiefling', name: 'Tiefling', bonus: { cha: 2, int: 1 }, speed: 30, size: 'M', darkvision: 60,
+    skinTones: ['#c65a5a', '#a84a6a', '#7a4a8a', '#d98a6a'],
+    traits: [{ name: 'Hellish Resistance', desc: 'Resistance to fire damage.' }, { name: 'Infernal Legacy', desc: 'You know the Thaumaturgy cantrip and can cast Hellish Rebuke once per long rest.' }, { name: 'Darkvision', desc: 'See in the dark up to 60 ft.' }],
+    feats: { fireResist: true, bonusCantrip: 'thaumaturgy', hellishRebuke: true }, desc: 'Horns, a tail, and a talent for persuasion.' },
+  dragonborn: { id: 'dragonborn', name: 'Dragonborn', bonus: { str: 2, cha: 1 }, speed: 30, size: 'M', darkvision: 0,
+    skinTones: ['#c9453a', '#3a6fc9', '#3a9a4a', '#c9a13a', '#e8e8e8', '#4a4a4a', '#c97a2a'],
+    traits: [{ name: 'Breath Weapon', desc: 'Action: exhale a 15 ft cone of elemental damage (2d6, Dex save, scales with level). Recharges on a rest.' }, { name: 'Damage Resistance', desc: 'Resistance to your draconic damage type.' }],
+    feats: { breathWeapon: true }, desc: 'Proud dragon-kin who can literally breathe fire.' },
+};

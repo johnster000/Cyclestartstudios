@@ -1,0 +1,2058 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#120829">
+<title>Neon Horde</title>
+<style>
+  @font-face{
+    font-family:'Righteous'; font-style:normal; font-weight:400; font-display:swap;
+    src:url('fonts/righteous.woff2') format('woff2');
+  }
+  @font-face{
+    font-family:'Mr Dafoe'; font-style:normal; font-weight:400; font-display:swap;
+    src:url('fonts/mrdafoe.woff2') format('woff2');
+  }
+  @font-face{
+    font-family:'Audiowide'; font-style:normal; font-weight:400; font-display:swap;
+    src:url('fonts/audiowide.woff2') format('woff2');
+  }
+  :root{
+    --void:#120829; --void-2:#2A0F4A; --grid:#7B2FBE; --pink:#FF2E97;
+    --orange:#FF9E1F; --cyan:#2DE2FF; --ink:#F4EDFF; --ink-dim:#B9A6D9;
+    --display:'Righteous', 'Arial Black', sans-serif;
+    --script:'Mr Dafoe', cursive;
+    --hud:'Audiowide', 'Segoe UI', Arial, sans-serif;
+    --pixel:'Audiowide', 'Segoe UI', Arial, sans-serif;
+  }
+  [hidden]{display:none !important}
+  html,body{height:100%}
+  body{
+    margin:0; background:var(--void); color:var(--ink);
+    font-family:var(--hud); overflow:hidden;
+    -webkit-user-select:none; user-select:none; touch-action:none;
+    overscroll-behavior:none;
+  }
+  #stage{position:fixed; inset:0; display:block; touch-action:none}
+  /* CRT overlay */
+  #crt{position:fixed; inset:0; pointer-events:none; z-index:5;
+    background:
+      repeating-linear-gradient(0deg, rgba(0,0,0,.14) 0 1px, transparent 1px 3px),
+      radial-gradient(ellipse at center, transparent 55%, rgba(6,2,16,.55) 100%);
+  }
+  /* ---------- HUD ---------- */
+  #hud{
+    position:fixed; top:0; left:0; right:0; z-index:6; display:flex;
+    justify-content:space-between; align-items:flex-start;
+    padding:calc(10px + env(safe-area-inset-top)) 14px 0; pointer-events:none;
+  }
+  .hud-block{display:flex; flex-direction:column; gap:4px}
+  .hud-label{font-family:var(--pixel); font-size:9px; letter-spacing:.22em; text-transform:uppercase; color:var(--ink-dim)}
+  .hud-value{font-family:var(--pixel); font-size:19px; line-height:1.2;
+    color:var(--cyan); text-shadow:0 0 10px rgba(45,226,255,.8)}
+  #hud-score{align-items:flex-end}
+  #hud-score .hud-value{color:var(--orange); text-shadow:0 0 10px rgba(255,158,31,.8); text-align:right}
+  #pause{
+    width:40px; height:40px; border-radius:10px; border:1px solid var(--grid);
+    background:rgba(18,8,41,.75); color:var(--cyan); font-size:14px; line-height:1;
+    letter-spacing:2px; display:flex; align-items:center; justify-content:center;
+    cursor:pointer; pointer-events:auto; margin-top:-4px;
+    text-shadow:0 0 8px rgba(45,226,255,.9);
+  }
+  #pause:focus-visible{outline:2px solid var(--orange); outline-offset:2px}
+  #bossbar{position:fixed; top:calc(58px + env(safe-area-inset-top)); left:50%; transform:translateX(-50%);
+    width:min(70vw,340px); display:none; z-index:6}
+  #bossbar .hud-label{text-align:center; color:var(--pink); margin-bottom:4px; text-shadow:0 0 8px rgba(255,46,151,.9)}
+  #bossbar .track{height:10px; border-radius:5px; background:rgba(6,2,16,.7); border:1px solid var(--pink);
+    box-shadow:0 0 12px rgba(255,46,151,.5); overflow:hidden}
+  #bossbar .fill{height:100%; width:100%; background:linear-gradient(90deg,var(--grid),var(--pink))}
+  /* ---------- overlay screens ---------- */
+  .screen{
+    position:fixed; inset:0; z-index:7; display:flex; flex-direction:column; align-items:center;
+    justify-content:safe center; gap:16px; text-align:center; padding:24px; overflow-y:auto;
+    background:rgba(10,4,24,.72); backdrop-filter:blur(3px);
+    opacity:0; transform:translateY(16px) scale(.985); pointer-events:none;
+    transition:opacity .35s ease, transform .35s ease;
+  }
+  .screen.on{opacity:1; transform:none; pointer-events:auto}
+  @media (prefers-reduced-motion: reduce){ .screen{transition:none; transform:none} }
+  .title{
+    font-family:var(--display); font-weight:400; font-size:clamp(38px,12vw,76px);
+    letter-spacing:.06em; text-transform:uppercase;
+    line-height:1.02; margin:0; color:var(--pink); text-wrap:balance;
+    text-shadow:0 0 8px rgba(255,46,151,.9), 0 0 32px rgba(255,46,151,.55), 0 0 80px rgba(255,46,151,.35);
+  }
+  .script{
+    font-family:var(--script); font-weight:400; text-transform:none; letter-spacing:0;
+    font-size:1.3em; line-height:.9; display:inline-block; transform:rotate(-5deg);
+  }
+  .title .alt{color:var(--cyan);
+    text-shadow:0 0 8px rgba(45,226,255,.9), 0 0 32px rgba(45,226,255,.55), 0 0 80px rgba(45,226,255,.35)}
+  .title .amber{color:var(--orange);
+    text-shadow:0 0 8px rgba(255,158,31,.9), 0 0 32px rgba(255,158,31,.55)}
+  .tag{color:var(--ink-dim); font-size:14px; max-width:36ch; line-height:1.55; margin:0; font-weight:500}
+  .tag b{color:var(--ink)}
+  .btn{
+    font-family:var(--pixel); font-weight:400; font-size:16px; letter-spacing:.08em;
+    color:var(--void); background:linear-gradient(180deg,#7CEBFF,var(--cyan));
+    border:0; border-radius:4px; padding:16px 44px; cursor:pointer;
+    box-shadow:0 0 18px rgba(45,226,255,.55), 0 0 50px rgba(45,226,255,.25);
+    transition:transform .08s;
+  }
+  .btn:active{transform:scale(.96)}
+  .btn:focus-visible{outline:3px solid var(--orange); outline-offset:3px}
+  .btn.pink{background:linear-gradient(180deg,#FF7CBE,var(--pink)); color:#fff;
+    box-shadow:0 0 18px rgba(255,46,151,.55), 0 0 50px rgba(255,46,151,.25)}
+  .btn.ghost{background:transparent; color:var(--cyan); border:1.5px solid var(--cyan);
+    box-shadow:0 0 12px rgba(45,226,255,.25); text-shadow:0 0 8px rgba(45,226,255,.7); font-size:13px; padding:12px 30px}
+  .btn-col{display:flex; flex-direction:column; gap:12px; align-items:center}
+  .btn-row{display:flex; gap:10px}
+  .btn-row .btn{padding:12px 18px; font-size:11px}
+  .link-row{display:flex; gap:20px}
+  .legend{display:flex; flex-wrap:wrap; gap:8px; justify-content:center; max-width:340px}
+  .lg{font-family:var(--pixel); font-size:9px; padding:7px 10px; border:1px solid; border-radius:5px;
+    letter-spacing:.06em; text-shadow:0 0 8px currentColor}
+  .logo{margin-top:-6px; width:min(40vw,160px)}
+  .eyebrow{font-size:11px; font-weight:700; letter-spacing:.42em; text-transform:uppercase;
+    color:var(--pink); text-shadow:0 0 10px rgba(255,46,151,.8); margin:0 0 -4px}
+  .linkbtn{background:none; border:none; color:var(--ink-dim); font-family:var(--hud); font-weight:500;
+    font-size:11px; letter-spacing:.12em; text-transform:uppercase; text-decoration:underline; cursor:pointer; padding:6px}
+  .linkbtn:focus-visible{outline:2px solid var(--orange); outline-offset:2px}
+  .credit{font-size:10px; font-weight:500; letter-spacing:.2em; text-transform:uppercase; color:var(--ink-dim); margin:0}
+  .stat-row{display:flex; gap:30px; justify-content:center}
+  .stat{display:flex; flex-direction:column; gap:3px}
+  .stat .hud-value{font-size:26px}
+  .howto{display:flex; gap:18px; color:var(--ink-dim); font-size:12px; line-height:1.5; font-weight:500}
+  .howto div{max-width:15ch}
+  .howto b{color:var(--orange); display:block; font-size:10px; letter-spacing:.22em; text-transform:uppercase; margin-bottom:3px}
+  .gatekey{display:flex; gap:10px; justify-content:center}
+  .gk{font-family:var(--pixel); font-size:12px; padding:8px 12px; border-radius:4px; border:1px solid}
+  .gk.pos{color:var(--orange); border-color:var(--orange); background:rgba(255,158,31,.1);
+    text-shadow:0 0 8px rgba(255,158,31,.8); box-shadow:0 0 10px rgba(255,158,31,.25)}
+  .gk.neg{color:var(--pink); border-color:var(--pink); background:rgba(255,46,151,.1);
+    text-shadow:0 0 8px rgba(255,46,151,.8); box-shadow:0 0 10px rgba(255,46,151,.25)}
+  .free{font-family:var(--pixel); font-size:10px; letter-spacing:.24em; text-transform:uppercase; color:var(--orange);
+    text-shadow:0 0 8px rgba(255,158,31,.7)}
+  .donate{font-family:var(--pixel); font-size:9px; letter-spacing:.1em; color:#FFE23F; text-decoration:none;
+    border:1px solid rgba(255,226,63,.45); border-radius:6px; padding:9px 14px; margin-top:2px;
+    text-shadow:0 0 8px rgba(255,226,63,.6); background:rgba(255,226,63,.05)}
+  .donate:focus-visible{outline:2px solid var(--orange); outline-offset:2px}
+  .donate.blocked{-webkit-user-select:text; user-select:text; color:var(--ink); border-color:var(--ink-dim)}
+  .blink{animation:blink 1.2s steps(2,start) infinite}
+  @keyframes blink{50%{opacity:0}}
+  @media (prefers-reduced-motion: reduce){ .blink{animation:none} }
+  .logo{width:min(46vw,190px); display:block; mix-blend-mode:screen; margin-bottom:-8px}
+  .hud-coins{font-family:var(--pixel); font-size:12px; color:#FFE23F; text-shadow:0 0 8px rgba(255,226,63,.8)}
+  #ship-list{display:flex; flex-direction:column; gap:10px; width:min(88vw,380px); max-height:52vh; overflow-y:auto}
+  .ship-card{display:flex; align-items:center; gap:12px; padding:10px 12px; text-align:left;
+    border:1.5px solid var(--grid); border-radius:6px; background:rgba(18,8,41,.85)}
+  .ship-card.sel{border-color:var(--cyan); box-shadow:0 0 14px rgba(45,226,255,.35)}
+  .ship-card img{width:52px; height:auto; image-rendering:pixelated; flex:none}
+  .ship-info{flex:1; min-width:0}
+  .ship-name{font-family:var(--pixel); font-size:14px}
+  .ship-desc{font-family:var(--pixel); font-size:9px; color:var(--ink-dim); margin-top:5px; line-height:1.6}
+  .ship-btn{font-family:var(--pixel); font-size:8px; padding:9px 10px; border-radius:4px; flex:none;
+    border:1px solid var(--cyan); background:transparent; color:var(--cyan); cursor:pointer;
+    text-shadow:0 0 6px rgba(45,226,255,.7)}
+  .ship-btn.buy{border-color:#FFE23F; color:#FFE23F; text-shadow:0 0 6px rgba(255,226,63,.7)}
+  .ship-btn:disabled{opacity:.4; cursor:default}
+  .ship-btn:focus-visible{outline:2px solid var(--orange); outline-offset:2px}
+  .shop-sec{font-family:var(--pixel); font-size:11px; letter-spacing:.12em; color:var(--ink-dim); margin:4px 0 0}
+  #supply-list{display:flex; gap:8px; flex-wrap:wrap; justify-content:center; width:min(88vw,380px)}
+  .sup-btn{display:flex; flex-direction:column; align-items:center; gap:5px; padding:9px 8px; min-width:62px;
+    border:1px solid; border-radius:6px; background:rgba(18,8,41,.85); cursor:pointer; font-family:var(--pixel)}
+  .sup-ico{font-size:16px; text-shadow:0 0 8px currentColor}
+  .sup-name{font-size:9px; color:var(--ink)}
+  .sup-price{font-size:9px; color:#FFE23F}
+  .sup-have{font-size:8px; color:var(--ink-dim)}
+  .sup-btn:disabled{opacity:.4; cursor:default}
+  .sup-btn:focus-visible{outline:2px solid var(--orange); outline-offset:2px}
+  #shop-scroll{display:flex; flex-direction:column; align-items:center; gap:10px; overflow-y:auto; max-height:56vh}
+  /* collected power-ups, tap to fire — sits above the pause/mute row, never on it */
+  #items{position:fixed; bottom:calc(12px + env(safe-area-inset-bottom)); left:10px; right:10px;
+    display:flex; gap:7px; z-index:6; justify-content:center; flex-wrap:wrap; pointer-events:none}
+  .item-btn{position:relative; width:42px; height:42px; border-radius:10px; border:1.5px solid;
+    background:rgba(18,8,41,.8); font-family:var(--pixel); font-size:16px; cursor:pointer;
+    pointer-events:auto; touch-action:manipulation;
+    text-shadow:0 0 8px currentColor; display:flex; align-items:center; justify-content:center}
+  .item-n{position:absolute; top:-7px; right:-7px; background:#FFE23F; color:#120829;
+    font-size:9px; border-radius:8px; padding:3px 5px; font-family:var(--pixel)}
+  .item-btn:focus-visible{outline:2px solid var(--orange); outline-offset:2px}
+  #dice-zone{display:flex; flex-direction:column; align-items:center; gap:10px}
+  #dice-zone[hidden]{display:none !important}
+  #die{width:160px; height:160px}
+  .pixel-eyebrow{font-family:var(--pixel); font-size:13px; color:var(--pink);
+    text-shadow:0 0 10px rgba(255,46,151,.8); margin:0; letter-spacing:.08em}
+  @media (prefers-reduced-motion: reduce){ .btn{transition:none} }
+</style>
+</head>
+<body>
+
+<canvas id="stage"></canvas>
+<div id="crt"></div>
+
+<div id="hud" hidden>
+  <div class="hud-block"><span class="hud-label">Level</span><span class="hud-value" id="hud-level">1</span></div>
+  <div class="hud-block" style="align-items:center"><span class="hud-label">Squad</span><span class="hud-value" id="hud-squad" style="text-align:center">3</span></div>
+  <div class="hud-block" id="hud-score"><span class="hud-label">Score</span><span class="hud-value" id="hud-score-v">0</span><span class="hud-coins">&#9670; <span id="hud-coins">0</span></span></div>
+  <button id="pause" aria-label="Pause" hidden>&#10074;&#10074;</button>
+</div>
+<div id="bossbar"><div class="hud-label">Mainframe Colossus</div><div class="track"><div class="fill" id="bossfill"></div></div></div>
+<div id="items" hidden></div>
+
+<div class="screen" id="scr-pause" hidden>
+  <h1 class="title" style="font-size:clamp(32px,10vw,56px)"><span class="alt script">Paused</span></h1>
+  <p class="tag">The grid waits for no one. Except you, right now.</p>
+  <div class="btn-col">
+    <button class="btn" id="btn-resume">RESUME</button>
+    <button class="btn ghost" id="btn-sound">SOUND: ON</button>
+    <button class="btn ghost" id="btn-music">MUSIC: ON</button>
+    <button class="btn ghost" id="btn-gfx">GRAPHICS: AUTO</button>
+    <button class="btn ghost" id="btn-quit">MAIN MENU</button>
+  </div>
+</div>
+
+<div class="screen on" id="scr-start" style="gap:13px">
+  <img class="logo" src="img/logo.png" alt="Cycle Start Studios">
+  <h1 class="title">NEON<br><span class="alt script">Horde</span></h1>
+  <div class="btn-col">
+    <button class="btn" id="btn-continue" hidden>CONTINUE &middot; LV 1</button>
+    <button class="btn" id="btn-start">ENTER THE GRID</button>
+    <div class="btn-row">
+      <button class="btn ghost" id="btn-hangar">HANGAR</button>
+      <button class="btn ghost" id="btn-help">HOW TO PLAY</button>
+    </div>
+  </div>
+  <div class="stat-row">
+    <div class="stat"><span class="hud-label">Best level</span><span class="hud-value" id="best-level">&ndash;</span></div>
+    <div class="stat"><span class="hud-label">Best score</span><span class="hud-value" id="best-score">&ndash;</span></div>
+    <div class="stat"><span class="hud-label">Coins</span><span class="hud-value" id="menu-coins" style="color:#FFE23F; text-shadow:0 0 10px rgba(255,226,63,.8)">0</span></div>
+  </div>
+  <div class="link-row">
+    <button class="linkbtn" id="btn-sound-menu">Sound: on</button>
+    <button class="linkbtn" id="btn-music-menu">Music: on</button>
+    <button class="linkbtn" id="btn-reset" hidden>Reset progress</button>
+  </div>
+  <p class="free blink">Free play &middot; no ads &middot; ever</p>
+  <!-- Set this to your own Buy Me a Coffee (or Ko-fi) page -->
+  <a class="donate" href="https://buymeacoffee.com/cyclestartstudios" target="_blank" rel="noopener">&#9749; Enjoying it? Buy me a coffee</a>
+</div>
+
+<div class="screen" id="scr-help" hidden>
+  <h1 class="title" style="font-size:clamp(24px,7.5vw,40px)">HOW TO <span class="alt script">Play</span></h1>
+  <p class="tag">Your fleet fires on its own &mdash; <b>drag anywhere to steer</b> (or use arrow keys). Stop every invader: one breach past the defense line ends the run.</p>
+  <div class="gatekey"><span class="gk pos">+5 ADD</span><span class="gk pos">&times;2 MULTIPLY</span><span class="gk neg">&minus;8 LOSE</span></div>
+  <p class="tag">Every bullet you pump into a gate pushes its number up. Fly through the good ones to grow your fleet &mdash; dodge the deep-red ones, or dig them out for a huge payoff.</p>
+  <div class="legend">
+    <span class="lg" style="color:#FF9E1F;border-color:#FF9E1F">R RAPID</span>
+    <span class="lg" style="color:#2DE2FF;border-color:#2DE2FF">S SPREAD</span>
+    <span class="lg" style="color:#BFEFFF;border-color:#BFEFFF">F FREEZE</span>
+    <span class="lg" style="color:#2DE2FF;border-color:#2DE2FF">+ MEDIC</span>
+    <span class="lg" style="color:#F4EDFF;border-color:#F4EDFF">B BARRIER</span>
+    <span class="lg" style="color:#FF2E97;border-color:#FF2E97">N NUKE</span>
+    <span class="lg" style="color:#FFE23F;border-color:#FFE23F">M MASK</span>
+  </div>
+  <p class="tag">Drops go to the belt at the bottom of the screen &mdash; tap one in battle to fire it when YOU choose. Coins bank to your wallet for the Hangar, and every 3rd wave the lucky D20 multiplies your haul.</p>
+  <button class="btn ghost" id="btn-help-back">BACK</button>
+</div>
+
+<div class="screen" id="scr-clear" hidden>
+  <h1 class="title" style="font-size:clamp(26px,8vw,48px)">LEVEL <span class="amber" id="clear-level">1</span><br><span class="alt script">Cleared!</span></h1>
+  <p class="tag" id="clear-flavor">The grid hums, empty. It will not stay that way.</p>
+  <p class="free" id="clear-coins"></p>
+  <div id="dice-zone" hidden>
+    <canvas id="die" width="360" height="360"></canvas>
+    <p class="free" id="roll-result">LUCKY DIE</p>
+    <button class="btn pink" id="btn-roll">ROLL THE D20</button>
+  </div>
+  <button class="btn" id="btn-next">NEXT WAVE</button>
+</div>
+
+<div class="screen" id="scr-shop" hidden>
+  <h1 class="title" style="font-size:clamp(26px,8vw,44px)"><span class="amber">HANGAR</span></h1>
+  <p class="free" id="shop-coins">&#9670; 0</p>
+  <div id="shop-scroll">
+    <p class="shop-sec">SHIPS</p>
+    <div id="ship-list"></div>
+    <p class="shop-sec">ONE-TIME SUPPLIES &mdash; TAP THEM IN BATTLE</p>
+    <div id="supply-list"></div>
+  </div>
+  <button class="btn ghost" id="btn-shop-back">BACK</button>
+</div>
+
+<div class="screen" id="scr-over" hidden>
+  <p class="pixel-eyebrow blink">GAME OVER</p>
+  <h1 class="title" style="font-size:clamp(34px,11vw,62px)"><span class="script">Derezzed</span></h1>
+  <p class="tag" id="over-reason">The horde ate the squad.</p>
+  <div class="stat-row">
+    <div class="stat"><span class="hud-label">Reached level</span><span class="hud-value" id="over-level">1</span></div>
+    <div class="stat"><span class="hud-label">Score</span><span class="hud-value" id="over-score">0</span></div>
+  </div>
+  <p class="tag" id="over-best" hidden><b>New personal best.</b></p>
+  <div class="btn-col">
+    <button class="btn pink" id="btn-retry">RETRY LEVEL 1</button>
+    <button class="btn ghost" id="btn-menu">MAIN MENU</button>
+  </div>
+</div>
+
+<script>
+'use strict';
+/* ============================================================
+   NEON HORDE — synthwave lane-runner horde shooter.
+   No ads, no timers, no currencies. Just the game.
+   ============================================================ */
+const cv = document.getElementById('stage');
+const cx = cv.getContext('2d');
+
+const $ = function(id){ return document.getElementById(id); };
+const hud = $('hud'), hudLevel = $('hud-level'), hudScore = $('hud-score-v'), hudCoins = $('hud-coins'), hudSquad = $('hud-squad');
+const bossbar = $('bossbar'), bossfill = $('bossfill');
+const scrStart = $('scr-start'), scrClear = $('scr-clear'), scrOver = $('scr-over'), scrPause = $('scr-pause');
+const pauseBtn = $('pause');
+
+// fade screens in and out instead of snapping
+function showScreen(el){
+  clearTimeout(el._ht);
+  el.hidden = false;
+  void el.offsetWidth;               // reflow so the transition actually runs
+  el.classList.add('on');
+}
+function hideScreen(el){
+  clearTimeout(el._ht);
+  el.classList.remove('on');
+  el._ht = setTimeout(function(){ el.hidden = true; }, 380);
+}
+
+const clamp = (v,a,b) => v<a?a:(v>b?b:v);
+const lerp = (a,b,t) => a+(b-a)*t;
+const rand = (a,b) => a+Math.random()*(b-a);
+const irand = (a,b) => Math.floor(rand(a,b+1));
+const TAU = Math.PI*2;
+
+/* ---------- palette ---------- */
+const C = {
+  void:'#120829', void2:'#2A0F4A', grid:'#7B2FBE', gridDim:'#41197A',
+  pink:'#FF2E97', orange:'#FF9E1F', cyan:'#2DE2FF', ink:'#F4EDFF',
+  sunTop:'#FF5FD2', sunBot:'#FF9E1F',
+};
+
+/* ---------- persistence ---------- */
+function loadBest(){ try{ return JSON.parse(localStorage.getItem('neonhorde-best'))||{level:0,score:0}; }catch(e){ return {level:0,score:0}; } }
+function saveBest(b){ try{ localStorage.setItem('neonhorde-best', JSON.stringify(b)); }catch(e){} }
+let best = loadBest();
+// highest level unlocked — survives closing the app
+function loadProg(){ try{ return Math.max(1, parseInt(localStorage.getItem('neonhorde-progress'),10)||1); }catch(e){ return 1; } }
+function saveProg(p){ try{ localStorage.setItem('neonhorde-progress', String(p)); }catch(e){} }
+let progress = loadProg();
+// starting squad scales with the level you drop into, so continuing is survivable
+function startSquadFor(n){ return Math.min(16, 3 + Math.floor(n*.6)); }
+
+/* ---------- ships & coin wallet (the hangar) ---------- */
+const SHIP_ORDER = ['viper','wasp','talon','aegis','phantom'];
+const SHIPS = {
+  viper:   { name:'VIPER',   spr:'cannon',      col:'#2DE2FF', price:0,    rof:1,    dmg:1,    crew:0, dur:1,   coin:1, desc:'THE ORIGINAL. BALANCED.' },
+  wasp:    { name:'WASP',    spr:'ship_wasp',   col:'#FF9E1F', price:500,  rof:1.15, dmg:1,    crew:0, dur:1,   coin:1, desc:'+15% FIRE RATE' },
+  talon:   { name:'TALON',   spr:'ship_talon',  col:'#FF2E97', price:1200, rof:1,    dmg:1.25, crew:0, dur:1,   coin:1, desc:'+25% BULLET DAMAGE' },
+  aegis:   { name:'AEGIS',   spr:'ship_aegis',  col:'#F4EDFF', price:2400, rof:1,    dmg:1,    crew:3, dur:1,   coin:1, desc:'+3 STARTING SQUAD' },
+  phantom: { name:'PHANTOM', spr:'ship_phantom',col:'#B84FFF', price:4500, rof:1,    dmg:1,    crew:0, dur:1.5, coin:2, desc:'+50% POWER-UP TIME, 2X COINS' },
+};
+function loadCoins(){ try{ return Math.max(0, parseInt(localStorage.getItem('neonhorde-coins'),10)||0); }catch(e){ return 0; } }
+function saveCoins(){ try{ localStorage.setItem('neonhorde-coins', String(wallet)); }catch(e){} }
+function loadShips(){
+  try{
+    const d = JSON.parse(localStorage.getItem('neonhorde-ships'));
+    if(d && d.owned && SHIPS[d.sel] && d.owned.indexOf('viper')>=0) return d;
+  }catch(e){}
+  return { owned:['viper'], sel:'viper' };
+}
+function saveShips(){ try{ localStorage.setItem('neonhorde-ships', JSON.stringify(shipData)); }catch(e){} }
+let wallet = loadCoins();
+let shipData = loadShips();
+function curShip(){ return SHIPS[shipData.sel] || SHIPS.viper; }
+
+/* ---------- power-up inventory: collected, shown on the HUD, fired manually ---------- */
+const ITEM_ORDER = ['rapid','spread','freeze','medic','barrier','nuke','mask'];
+const ITEM_NAME = { rapid:'RAPID FIRE', spread:'SPREAD SHOT', freeze:'FREEZE', medic:'MEDIC +5',
+                    barrier:'BARRIER', nuke:'NUKE', mask:'THE MASK' };
+const SUPPLIES = [ {k:'medic',price:80}, {k:'freeze',price:100}, {k:'barrier',price:150}, {k:'nuke',price:250}, {k:'mask',price:400} ];
+function loadInv(){
+  const o = {}; for(let i=0;i<ITEM_ORDER.length;i++) o[ITEM_ORDER[i]] = 0;
+  try{
+    const d = JSON.parse(localStorage.getItem('neonhorde-inv'));
+    if(d) for(let i=0;i<ITEM_ORDER.length;i++){ const k=ITEM_ORDER[i]; o[k] = Math.max(0, d[k]|0); }
+  }catch(e){}
+  return o;
+}
+let inv = loadInv();
+function saveInv(){ try{ localStorage.setItem('neonhorde-inv', JSON.stringify(inv)); }catch(e){} }
+
+/* ---------- audio (tiny synth, no assets) ---------- */
+let AC = null, sfxOff = false, musicOff = false;
+/* Effects and music are separate switches — plenty of people want the chiptune
+   off and the taps on, or the other way round. A single stored mute from an
+   earlier build silences both, so nobody's quiet gets undone by updating. */
+try{
+  const legacy = localStorage.getItem('neonhorde-muted') === '1';
+  const s = localStorage.getItem('neonhorde-sfx'), m = localStorage.getItem('neonhorde-music');
+  sfxOff   = s === null ? legacy : s === '0';
+  musicOff = m === null ? legacy : m === '0';
+}catch(e){}
+function audio(){
+  if(!AC){ try{ AC = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} }
+  if(AC && AC.state==='suspended') AC.resume();
+  return AC;
+}
+function tone(freq, dur, type, vol, slide){
+  if(sfxOff) return; const ac = audio(); if(!ac) return;
+  const o = ac.createOscillator(), g = ac.createGain(), t = ac.currentTime;
+  o.type = type||'square'; o.frequency.setValueAtTime(freq, t);
+  if(slide) o.frequency.exponentialRampToValueAtTime(Math.max(30,slide), t+dur);
+  g.gain.setValueAtTime(vol||.05, t); g.gain.exponentialRampToValueAtTime(.0001, t+dur);
+  o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t+dur+.02);
+}
+let lastShotSfx = 0;
+const sfx = {
+  shoot(){ const n = performance.now(); if(n-lastShotSfx<70) return; lastShotSfx=n; tone(rand(880,960),.045,'square',.014,340); },
+  gateHit(){ tone(1300,.04,'triangle',.028,1600); },
+  gateGood(){ tone(392,.1,'triangle',.06); setTimeout(function(){tone(523,.1,'triangle',.06);},70); setTimeout(function(){tone(659,.16,'triangle',.06);},140); },
+  gateBad(){ tone(196,.25,'sawtooth',.06,110); },
+  zdie(){ tone(rand(140,180),.09,'sawtooth',.032,60); },
+  power(){ [660,880,1100,1320].forEach(function(f,i){ setTimeout(function(){tone(f,.09,'triangle',.05);}, i*55); }); },
+  nuke(){ tone(60,.7,'sawtooth',.12,28); },
+  hurt(){ tone(240,.18,'sawtooth',.07,90); },
+  win(){ [523,659,784,1046].forEach(function(f,i){ setTimeout(function(){tone(f,.16,'triangle',.06);}, i*110); }); },
+  lose(){ [330,262,208,131].forEach(function(f,i){ setTimeout(function(){tone(f,.22,'sawtooth',.06,f*.7);}, i*160); }); },
+  boss(){ tone(82,.5,'sawtooth',.09,60); },
+  coin(){ tone(987,.05,'square',.045); setTimeout(function(){tone(1318,.12,'square',.045);},45); },
+  mask(){ [523,659,784,1046,1318].forEach(function(f,i){ setTimeout(function(){tone(f,.11,'square',.05);}, i*70); }); },
+};
+
+/* ---------- chiptune engine v2: 8-bar form, lead lines, per-wave moods ---------- */
+let musicTimer = null, musicBar = 0, mood = 'chill', musicOut = null;
+const NF = { E2:82.41, G2:98, A2:110, B2:123.47, C3:130.81, D3:146.83, E3:164.81, G3:196, A3:220, B3:246.94,
+             C4:261.63, D4:293.66, DS4:311.13, E4:329.63, FS4:369.99, G4:392, A4:440, B4:493.88, C5:523.25, D5:587.33 };
+const CHORDS = {
+  Em:{ bass:NF.E2, arp:[NF.E3,NF.G3,NF.B3,NF.E4] },
+  C: { bass:NF.C3, arp:[NF.C4,NF.E4,NF.G4,NF.C5] },
+  G: { bass:NF.G2, arp:[NF.G3,NF.B3,NF.D4,NF.G4] },
+  D: { bass:NF.D3, arp:[NF.D4,NF.FS4,NF.A4,NF.D5] },
+  Am:{ bass:NF.A2, arp:[NF.A3,NF.C4,NF.E4,NF.A4] },
+  B: { bass:NF.B2, arp:[NF.B3,NF.DS4,NF.FS4,NF.B4] },
+};
+const PROGS = {
+  main: ['Em','C','G','D','Em','C','Am','B'],       // two 4-bar phrases, tension at the turn
+  boss: ['Em','Em','Am','B','Em','C','Am','B'],
+};
+const MOODS = {
+  chill: { bpm:104, prog:'main', kick:[0,8],        hat:[4,12],        bass:[0,6,8,14],                arpEvery:2, arpWave:'triangle', arpVol:.022, bassVol:.07,  pad:true,  lead:false, swing:.16 },
+  drive: { bpm:148, prog:'main', kick:[0,4,8,12],   hat:[2,6,10,14],   bass:[0,2,4,6,8,10,12,14],      arpEvery:1, arpWave:'square',   arpVol:.015, bassVol:.08,  pad:false, lead:true,  swing:0 },
+  pulse: { bpm:126, prog:'main', kick:[0,4,8,12],   hat:[2,6,10,14],   bass:[2,3,6,10,11,14],          arpEvery:2, arpWave:'square',   arpVol:.015, bassVol:.085, pad:true,  lead:true,  swing:0 },
+  boss:  { bpm:138, prog:'boss', kick:[0,3,8,11],   hat:[2,6,10,14],   bass:[0,2,4,6,8,10,12,14],      arpEvery:1, arpWave:'sawtooth', arpVol:.01,  bassVol:.09,  pad:true,  lead:false, swing:0 },
+};
+function musicDest(){
+  // a gentle lowpass takes the chip edge off — warmer, less fatiguing
+  if(!musicOut){
+    musicOut = AC.createBiquadFilter();
+    musicOut.type = 'lowpass'; musicOut.frequency.value = 2400; musicOut.Q.value = .5;
+    musicOut.connect(AC.destination);
+  }
+  return musicOut;
+}
+function noteAt(freq, t, dur, type, vol, slide){
+  const o=AC.createOscillator(), g=AC.createGain();
+  o.type=type; o.frequency.setValueAtTime(freq,t);
+  if(slide) o.frequency.exponentialRampToValueAtTime(Math.max(30,slide),t+dur);
+  g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+  o.connect(g); g.connect(musicDest()); o.start(t); o.stop(t+dur+.02);
+}
+const LEAD_LINES = [ [3,2,1,2], [2,1,0,2], [3,1,2,0], [2,3,1,0] ];
+function scheduleBar(t0){
+  if(musicOff || !AC){ musicTimer=null; return; }
+  const M = MOODS[mood] || MOODS.chill;
+  const step = 60/M.bpm/4;
+  const prog = PROGS[M.prog];
+  const b = musicBar % prog.length;
+  const ch = CHORDS[prog[b]];
+  musicBar++;
+  // sustained pad: root octave + fifth, whole bar
+  if(M.pad){
+    noteAt(ch.bass*2, t0, step*16, 'sine', .03);
+    noteAt(ch.bass*3, t0, step*16, 'sine', .016);
+  }
+  for(let s=0;s<16;s++){
+    let t = t0 + s*step;
+    if(M.swing && s%2===1) t += step*M.swing;       // lazy off-beats in chill
+    if(M.kick.indexOf(s)>=0) noteAt(120,t,.09,'sine',.11,45);
+    if(M.hat.indexOf(s)>=0)  noteAt(5200,t, s===14?.06:.03, 'square', .009);
+    if(M.bass.indexOf(s)>=0) noteAt(ch.bass,t, step*1.8, 'triangle', M.bassVol);
+    if(s % M.arpEvery === 0){
+      const seq = (b%2===0) ? [0,1,2,3] : [3,2,1,2];  // arp climbs, then tumbles
+      const k = Math.floor(s/M.arpEvery) % 4;
+      noteAt(ch.arp[seq[k]], t, step*M.arpEvery*.9, M.arpWave, M.arpVol);
+    }
+  }
+  // lead melody in the back half of the 8-bar form
+  if(M.lead && b>=4){
+    const mel = LEAD_LINES[b%4], steps = [0,5,8,13];
+    for(let i=0;i<4;i++){
+      noteAt(ch.arp[mel[i]]*2, t0+steps[i]*step, step*2.6, 'triangle', .02);
+    }
+  }
+  // turnaround sparkle on the last bar
+  if(b===prog.length-1){
+    noteAt(ch.arp[2]*2, t0+14*step, step*2, 'square', .016);
+    noteAt(ch.arp[3]*2, t0+15*step, step*2.4, 'square', .018);
+  }
+  const next = t0+16*step;
+  musicTimer = setTimeout(function(){ scheduleBar(next); }, Math.max(60,(next-AC.currentTime-.15)*1000));
+}
+/* A context created before the player has touched anything is suspended, and
+   scheduling a bar against it queues every note at time zero — they all fire at
+   once the moment it resumes. So wait until it is actually running. */
+function startMusic(){
+  if(musicOff || musicTimer) return;
+  const ac = audio();
+  if(!ac) return;
+  if(ac.state === 'running'){ scheduleBar(ac.currentTime+.08); return; }
+  ac.resume().then(function(){
+    if(!musicOff && !musicTimer && ac.state === 'running') scheduleBar(ac.currentTime+.08);
+  }).catch(function(){});
+}
+function stopMusic(){ clearTimeout(musicTimer); musicTimer=null; }
+function updateSoundBtns(){
+  $('btn-sound').textContent = 'SOUND: '+(sfxOff?'OFF':'ON');
+  $('btn-music').textContent = 'MUSIC: '+(musicOff?'OFF':'ON');
+  $('btn-sound-menu').textContent = 'Sound: '+(sfxOff?'off':'on');
+  $('btn-music-menu').textContent = 'Music: '+(musicOff?'off':'on');
+}
+function toggleSfx(){
+  sfxOff = !sfxOff;
+  try{ localStorage.setItem('neonhorde-sfx', sfxOff?'0':'1'); }catch(e){}
+  updateSoundBtns();
+  if(!sfxOff) tone(880,.05,'triangle',.04);      // a blip, so you know it took
+}
+function toggleMusic(){
+  musicOff = !musicOff;
+  try{ localStorage.setItem('neonhorde-music', musicOff?'0':'1'); }catch(e){}
+  updateSoundBtns();
+  if(musicOff) stopMusic(); else startMusic();
+}
+$('btn-sound').addEventListener('click', function(){ audio(); toggleSfx(); });
+$('btn-music').addEventListener('click', function(){ audio(); toggleMusic(); });
+function updateGfxBtn(){
+  $('btn-gfx').textContent = 'GRAPHICS: ' +
+    (qPref === 'auto' ? 'AUTO (' + qTier.toUpperCase() + ')' : qPref.toUpperCase());
+}
+$('btn-gfx').addEventListener('click', function(){
+  qPref = qPref === 'auto' ? 'high' : qPref === 'high' ? 'low' : 'auto';
+  try{ localStorage.setItem('neonhorde-gfx', qPref); }catch(e){}
+  setTier(pickTier());
+  updateGfxBtn();
+});
+$('btn-sound-menu').addEventListener('click', function(){ audio(); toggleSfx(); });
+$('btn-music-menu').addEventListener('click', function(){ audio(); toggleMusic(); });
+updateSoundBtns();
+
+/* ---------- viewport / perspective ---------- */
+/* ---------- performance tiers ----------
+   Phones now ship 120Hz panels and tablets ship 3K screens; both will happily
+   melt a canvas-2D game. We cap the frame rate, budget total canvas pixels,
+   and drop expensive shadow blur when the device cannot keep up. */
+const TIERS = {
+  high: { maxDPR: 2,   budget: 2600000, glow: true  },
+  low:  { maxDPR: 1.5, budget: 1400000, glow: false },
+};
+let qPref = 'auto';
+try{ qPref = localStorage.getItem('neonhorde-gfx') || 'auto'; }catch(e){}
+function pickTier(){
+  if(qPref === 'high' || qPref === 'low') return qPref;
+  // large screens (tablets) start conservative; the adaptive check can still adjust
+  return (window.innerWidth * window.innerHeight > 780000) ? 'low' : 'high';
+}
+let qTier = pickTier();
+let Q = TIERS[qTier];
+function setTier(name){
+  qTier = name; Q = TIERS[name] || TIERS.high;
+  resize();
+}
+// glow is the expensive part: one blur pass per draw call
+function glow(color, blur){
+  cx.shadowColor = color;
+  cx.shadowBlur = Q.glow ? blur : 0;
+}
+
+let W=0, H=0, DPR=1;
+function resize(){
+  W = window.innerWidth; H = window.innerHeight;
+  const want = Math.min(window.devicePixelRatio||1, Q.maxDPR);
+  // never rasterise more pixels than the budget, however dense the panel
+  let d = want;
+  const area = Math.max(1, W*H);
+  if(area*d*d > Q.budget) d = Math.sqrt(Q.budget/area);
+  DPR = Math.max(0.75, Math.min(want, d));
+  cv.width = Math.round(W*DPR); cv.height = Math.round(H*DPR);
+  cv.style.width = W+'px'; cv.style.height = H+'px';
+  cx.setTransform(DPR,0,0,DPR,0,0);
+  makeStars();
+}
+window.addEventListener('resize', resize);
+
+// world coords: x in [-1,1] across the road, t in [0..1] horizon -> player line
+const HORIZON = 0.27, PLAYERLINE = 0.78;   // player sits higher so thumbs get room below
+const persp = t => Math.pow(clamp(t,0,1), 1.45);
+const SCALE_MIN = 0.22;
+const scaleAt = t => lerp(SCALE_MIN, 1, persp(t));
+const yAt = t => H*HORIZON + (H*PLAYERLINE - H*HORIZON) * persp(t);
+function roadHalf(t){
+  const base = Math.min(W*0.48, 330);
+  return base * scaleAt(t);
+}
+// continue a world-x line past the player line to the bottom screen edge, on the true projection
+function bottomX(wx){
+  const p = (H - H*HORIZON) / (H*PLAYERLINE - H*HORIZON);
+  return W/2 + wx * Math.min(W*0.48, 330) * (SCALE_MIN + (1-SCALE_MIN)*p);
+}
+const xAt = (wx,t) => W/2 + wx * roadHalf(t);
+
+/* ---------- backdrop (stars, mountains) ---------- */
+let stars = [];
+function makeStars(){
+  stars = [];
+  const n = Math.floor(W*H/9000);
+  for(let i=0;i<n;i++) stars.push({x:Math.random()*W, y:Math.random()*H*HORIZON*.9, r:rand(.5,1.6), p:rand(0,TAU)});
+}
+// mirrored geodesic ranges: a layered-sine ridge that scrolls outward from the center
+const MTN = { a:rand(0,TAU), b:rand(0,TAU), c:rand(0,TAU) };
+function ridgeH(u){
+  const v = Math.sin(u*1.9+MTN.a) + .55*Math.sin(u*3.7+MTN.b) + .3*Math.sin(u*6.3+MTN.c);
+  return Math.max(0, v*.5 + .55);
+}
+function drawMountains(hy){
+  const sunHalf = Math.min(W,H)*0.20 + 26;
+  const half = W/2, stepPx = 16;
+  const scroll = now*.14;
+  for(let m=0;m<2;m++){
+    const side = m===0 ? -1 : 1;
+    const pts = [];
+    for(let xi=0; xi<=half+stepPx; xi+=stepPx){
+      const sx = side<0 ? half-xi : half+xi;               // both sides sample the same u — perfect mirror
+      const u = xi*.021 + scroll;
+      const fade = clamp((xi - sunHalf)/(W*.20), 0, 1);    // stays clear of the sun
+      pts.push([sx, hy - ridgeH(u)*H*.08*fade]);
+    }
+    // dark silhouette
+    cx.beginPath();
+    cx.moveTo(pts[0][0], hy);
+    for(let i=0;i<pts.length;i++) cx.lineTo(pts[i][0], pts[i][1]);
+    cx.lineTo(pts[pts.length-1][0], hy);
+    cx.closePath();
+    cx.fillStyle = 'rgba(11,4,32,.92)'; cx.fill();
+    // neon ridge line
+    neon(C.grid, 6, 1.3);
+    cx.beginPath();
+    cx.moveTo(pts[0][0], pts[0][1]);
+    for(let i=1;i<pts.length;i++) cx.lineTo(pts[i][0], pts[i][1]);
+    cx.stroke();
+    // geodesic triangulation down to the horizon
+    cx.globalAlpha = .55; cx.lineWidth = 1;
+    cx.beginPath();
+    for(let i=0;i<pts.length-1;i++){
+      cx.moveTo(pts[i][0], pts[i][1]);
+      cx.lineTo(pts[i+1][0], hy);
+    }
+    cx.stroke();
+    cx.globalAlpha = 1;
+    noGlow();
+  }
+}
+
+/* ---------- game state ---------- */
+const ST = { MENU:0, PLAY:1, CLEAR:2, OVER:3, PAUSE:4 };
+let state = ST.MENU;
+let level = 1, score = 0, shake = 0, now = 0;
+let squad = null, bullets = [], zombies = [], gates = [], drops = [], floats = [], parts = [], coins = [];
+let spawner = null, boss = null, endLine = null;
+let frozenUntil = 0, rapidUntil = 0, spreadUntil = 0, shieldUntil = 0, maskUntil = 0;
+let readyT = 0, flashA = 0, levelCoins = 0;
+
+const GATE_SPEED = .055, DROP_SPEED = .07, COIN_SPEED = .075, BULLET_SPEED = 1.15;   // gates drift slower than the horde
+const GATE_HALF = .10;   // gate half-width in world units — 10% of the runway
+const GOLD = '#FFE23F';
+const MAX_SHOOTERS = 48;   // visual/perf cap on tracers; extra squad rides along as bonus damage
+const MAX_DRAWN = 56;      // most soldiers rendered at once
+
+let squadOffCache = {};
+function squadOffsets(n){
+  if(squadOffCache[n]) return squadOffCache[n];
+  const off = [[0,0]]; let ring = 1;
+  while(off.length < n){
+    const count = ring*4;
+    for(let i=0;i<count && off.length<n;i++){
+      const a = (i/count)*TAU + ring*.5;
+      off.push([Math.cos(a)*ring*.055, Math.sin(a)*ring*.03 + ring*.014]);
+    }
+    ring++;
+  }
+  squadOffCache[n] = off;
+  return off;
+}
+
+function levelConfig(n){
+  const isBoss = n%5===0;
+  // wave flavors keep later levels from feeling identical
+  let type = 'standard';
+  if(!isBoss && n>=4 && n%7===3) type = 'rush';        // fast, fragile, everywhere
+  else if(!isBoss && n>=6 && n%9===4) type = 'heavy';  // slow wall of tanks
+  const cfg = {
+    type: type,
+    count: isBoss ? 10+n*3 : 12+n*4,
+    hp: 3 + Math.ceil(n*0.8),
+    speed: 0.066 * (1 + n*0.018),
+    interval: Math.max(0.34, 1.15 - n*0.035),
+    runnerP: n>=2 ? Math.min(.3, .05+n*.015) : 0,
+    tankP: n>=3 ? Math.min(.18, .03+n*.012) : 0,
+    splitterP: n>=4 ? Math.min(.15, .02+n*.01) : 0,
+    weaverP: n>=6 ? Math.min(.12, .015+n*.008) : 0,
+    gateEvery: 6.4,
+    isBoss: isBoss,
+  };
+  if(type==='rush'){ cfg.count = Math.round(cfg.count*1.25); cfg.hp = Math.max(1, Math.round(cfg.hp*.65)); cfg.runnerP = .8; cfg.tankP = 0; cfg.splitterP = 0; cfg.interval *= .7; }
+  if(type==='heavy'){ cfg.count = Math.round(cfg.count*.6); cfg.tankP = .45; cfg.runnerP = 0; cfg.interval *= 1.5; }
+  return cfg;
+}
+const WAVE_NAME = { rush:'RUSH WAVE', heavy:'HEAVY WAVE' };
+
+function startLevel(){
+  const cfg = levelConfig(level);
+  squad = { x:0, n: startSquadFor(level) + curShip().crew, fireAcc:0, fireIdx:0 };   // fresh squad every level
+  bullets=[]; zombies=[]; gates=[]; drops=[]; floats=[]; parts=[]; coins=[];
+  boss = null; endLine = null; frozenUntil=rapidUntil=spreadUntil=shieldUntil=maskUntil=0; shake=0;
+  levelCoins = 0;
+  spawner = { cfg:cfg, left:cfg.count, t:1.4, gateT:3.2, coinT:2.2, bossSpawned:false };
+  readyT = .9;
+  addFloat(W/2, H*.46, 'READY?', GOLD, true);
+  // each wave brings its own musical mood
+  mood = cfg.isBoss ? 'boss'
+       : cfg.type==='rush' ? 'drive'
+       : cfg.type==='heavy' ? 'pulse'
+       : ['chill','drive','pulse'][level%3];
+  startMusic();
+  hudLevel.textContent = level; hudScore.textContent = score; hudCoins.textContent = wallet;
+  hudSquad.textContent = squad.n;
+  bossbar.style.display = 'none';
+  state = ST.PLAY;
+  hud.hidden = false; pauseBtn.hidden = false;
+  $('items').hidden = false; renderItems();
+  hideScreen(scrStart); hideScreen(scrClear); hideScreen(scrOver); hideScreen(scrPause);
+  if(WAVE_NAME[cfg.type]) addFloat(W/2, H*0.42, WAVE_NAME[cfg.type], cfg.type==='rush'?C.orange:C.pink, true);
+}
+
+/* ---------- entities ---------- */
+function pickSpawnX(){
+  // never drop an enemy behind a gate near the horizon — reroll, center gap as fallback
+  for(let tries=0; tries<8; tries++){
+    const lane = Math.random()<.5 ? -0.5 : 0.5;            // 2 lanes
+    const x = clamp(lane + rand(-.32,.32), -.9,.9);
+    let covered = false;
+    for(let i=0;i<gates.length;i++){
+      const g = gates[i];
+      if(g.t<.55 && Math.abs(x - g.gx) < GATE_HALF+.08){ covered = true; break; }
+    }
+    if(!covered) return x;
+  }
+  return rand(-.12,.12);                                   // the middle strip is always gate-free
+}
+function spawnZombie(kind, atX, atT){
+  const cfg = spawner.cfg;
+  const z = {
+    x: atX!==undefined ? clamp(atX,-.9,.9) : pickSpawnX(),
+    t: atT!==undefined ? atT : 0,
+    kind:kind, wob:rand(0,TAU), flash:0,
+    hp:0, maxhp:0, speed:cfg.speed, r:.075, power:2, val:10,
+  };
+  if(kind==='runner'){ z.hp=Math.max(2,Math.round(cfg.hp*.55)); z.speed=cfg.speed*1.85; z.r=.06; z.power=1; z.val=15; }
+  else if(kind==='tank'){ z.hp=cfg.hp*4; z.speed=cfg.speed*.62; z.r=.11; z.power=6; z.val=40; }
+  else if(kind==='splitter'){ z.hp=Math.round(cfg.hp*1.6); z.speed=cfg.speed*.9; z.r=.095; z.power=3; z.val=25; }
+  else if(kind==='mini'){ z.hp=Math.max(2,Math.round(cfg.hp*.4)); z.speed=cfg.speed*1.6; z.r=.05; z.power=1; z.val=5; }
+  else if(kind==='weaver'){ z.hp=Math.max(1,Math.round(cfg.hp*.8)); z.speed=cfg.speed*1.2; z.r=.07; z.power=2; z.val=30; z.baseX=z.x; }
+  else if(kind==='boss'){ z.hp=cfg.hp*26+level*15; z.speed=cfg.speed*.5; z.r=.2; z.power=999; z.val=400; z.x=0;
+    boss=z; bossbar.style.display='block'; bossfill.style.width='100%'; sfx.boss(); }
+  else { z.hp=cfg.hp; }
+  // rubber-band: strong squads meet tougher spawns, sub-linearly — a big squad still crushes
+  if(squad){
+    const expected = startSquadFor(level) + 6 + level*.5;
+    const ratio = squad.n / expected;
+    if(ratio > 1){
+      const m = Math.min(1.9, 1 + (Math.sqrt(ratio)-1)*.75);
+      z.hp = Math.max(1, Math.round(z.hp*m));
+    }
+  }
+  // sprites never poke past the rails — clamp by each enemy's own width
+  z.mx = Math.max(.5, 1 - z.r*1.8);
+  z.x = clamp(z.x, -z.mx, z.mx);
+  z.maxhp=z.hp;
+  zombies.push(z);
+}
+function spawnGate(){
+  // one narrow gate at a time, anywhere on the runway
+  const gx = rand(-.72,.72), r = Math.random();
+  let g;
+  if(r<.35)      g = { gx:gx, op:'+', v: irand(3, 6+level),    t:0, hits:0, locked:false, posGain:0 };  // good
+  else if(r<.55) g = { gx:gx, op:'x', v:2,                     t:0, hits:0, locked:true };              // multiplier
+  else if(r<.75) g = { gx:gx, op:'+', v:-irand(3, 10+level),   t:0, hits:0, locked:false, posGain:0 };  // fixer-upper
+  else           g = { gx:gx, op:'+', v:-irand(70, 105),       t:0, hits:0, locked:false, posGain:0 };  // deep in the red
+  gates.push(g);
+}
+function spawnDrop(x,t){
+  const pool = ['rapid','spread','freeze','medic','nuke','barrier','mask'];
+  const w    = [ 22,     18,      14,      20,     8,     10,      8    ];
+  let r = rand(0,100), kind = pool[0];
+  for(let i=0;i<pool.length;i++){ if(r<w[i]){ kind=pool[i]; break; } r-=w[i]; }
+  drops.push({ x:x, t:t, kind:kind, spin:rand(0,TAU) });
+}
+function spawnCoinTrail(){
+  const x = rand(-.7,.7), n = irand(3,5);
+  for(let i=0;i<n;i++) coins.push({ x:x+rand(-.02,.02), t:-i*.06, spin:rand(0,TAU) });
+}
+function addFloat(x,y,txt,color,big){
+  floats.push({x:x,y:y,txt:txt,color:color,life:1,big:!!big});
+}
+function burst(x,y,color,n,sp){
+  for(let i=0;i<n;i++){
+    const a=rand(0,TAU), s=rand(.3,1)*(sp||1);
+    parts.push({x:x,y:y,vx:Math.cos(a)*s*160,vy:Math.sin(a)*s*160-40,life:rand(.3,.7),color:color});
+  }
+}
+
+/* ---------- input ---------- */
+let dragging=false, lastPX=0, keys={};
+cv.addEventListener('pointerdown', function(e){ dragging=true; lastPX=e.clientX; audio(); });
+window.addEventListener('pointermove', function(e){
+  if(!dragging || state!==ST.PLAY) return;
+  const dx = e.clientX-lastPX; lastPX=e.clientX;
+  squad.x = clamp(squad.x + dx/roadHalf(1)*1.15, -.88,.88);
+});
+window.addEventListener('pointerup', function(){ dragging=false; });
+window.addEventListener('pointercancel', function(){ dragging=false; });
+window.addEventListener('keydown', function(e){ keys[e.key]=true; });
+window.addEventListener('keyup', function(e){ keys[e.key]=false; });
+window.addEventListener('contextmenu', function(e){ e.preventDefault(); });
+
+/* ---------- update ---------- */
+function update(dt){
+  const cfg = spawner.cfg;
+  const frozen = now < frozenUntil;
+
+  if(readyT>0){
+    readyT -= dt;
+    if(readyT<=0) addFloat(W/2, H*.46, 'GO!', C.cyan, true);
+  }
+
+  if(keys.ArrowLeft||keys.a) squad.x = clamp(squad.x-1.6*dt,-.88,.88);
+  if(keys.ArrowRight||keys.d) squad.x = clamp(squad.x+1.6*dt,-.88,.88);
+
+  // spawning
+  if(spawner.left>0){
+    spawner.t -= dt;
+    if(spawner.t<=0){
+      spawner.t = cfg.interval * rand(.7,1.3);
+      if(cfg.isBoss && !spawner.bossSpawned && spawner.left===Math.ceil(cfg.count/2)){
+        spawner.bossSpawned = true; spawnZombie('boss');
+      } else {
+        const r = Math.random();
+        let kind = 'walker', acc = 0;
+        if(r < (acc += cfg.tankP)) kind = 'tank';
+        else if(r < (acc += cfg.runnerP)) kind = 'runner';
+        else if(r < (acc += cfg.splitterP)) kind = 'splitter';
+        else if(r < (acc += cfg.weaverP)) kind = 'weaver';
+        spawnZombie(kind);
+      }
+      spawner.left--;
+      if(spawner.left===0){
+        endLine = { t:0 };                      // the visible end of the wave
+        addFloat(W/2, H*.4, 'LAST OF THE WAVE', C.cyan, false);
+      }
+    }
+  }
+  // wave-end finish line rolls in behind the horde; it hurries once the horde is dead
+  const waveDone = spawner.left<=0 && zombies.length===0;
+  if(endLine && endLine.t<1) endLine.t += (waveDone ? .35 : Math.min(cfg.speed,.06))*dt;
+  spawner.gateT -= dt;
+  if(spawner.gateT<=0 && spawner.left>2 && gates.length===0){ spawner.gateT = cfg.gateEvery*rand(.7,1.1); spawnGate(); }
+  spawner.coinT -= dt;
+  if(spawner.coinT<=0 && spawner.left>0){ spawner.coinT = rand(4.5,7); spawnCoinTrail(); }
+
+  // coins drift down; drive over them to bank score (they hurry in once the wave is dead)
+  const sweep = waveDone ? 5 : 1;
+  for(let i=coins.length-1;i>=0;i--){
+    const c = coins[i];
+    c.t += COIN_SPEED*sweep*dt; c.spin += dt*7;
+    if(c.t>=.88 && Math.abs(c.x-squad.x)<.22){
+      score += 5; hudScore.textContent = score;
+      wallet += curShip().coin; levelCoins += curShip().coin; hudCoins.textContent = wallet;
+      sfx.coin(); coins.splice(i,1); continue;
+    }
+    if(c.t>=1) coins.splice(i,1);
+  }
+
+  // firing — continuous spray: shots spread evenly over time, soldiers fire round-robin
+  const rapid = now<rapidUntil, spread = now<spreadUntil, ship = curShip();
+  const rate = (rapid?5.2:2.6) * ship.rof;   // shots per second per soldier
+  const shooters = Math.min(squad.n, MAX_SHOOTERS);
+  const dmg = (squad.n / shooters) * ship.dmg;   // huge squads pack extra damage per tracer
+  const offs = squadOffsets(shooters);
+  squad.fireAcc += rate*shooters*dt;
+  let fired = 0;
+  while(squad.fireAcc>=1 && fired<80){
+    squad.fireAcc -= 1; fired++;
+    squad.fireIdx = (squad.fireIdx+1) % shooters;
+    const i = squad.fireIdx;
+    const bx = clamp(squad.x + offs[i][0], -1,1);
+    bullets.push({x:bx+rand(-.008,.008), t:1-offs[i][1]*.5, vx:0, dmg:dmg});
+    if(spread && i%3===0){
+      bullets.push({x:bx, t:1, vx:-.22, dmg:dmg});
+      bullets.push({x:bx, t:1, vx:.22, dmg:dmg});
+    }
+  }
+  if(fired) sfx.shoot();
+  if(bullets.length>420) bullets.splice(0, bullets.length-420);
+
+  // bullets
+  for(let i=bullets.length-1;i>=0;i--){
+    const b = bullets[i];
+    b.t -= BULLET_SPEED*dt; b.x += b.vx*dt;
+    if(b.t<=0 || b.x<-1.05 || b.x>1.05){ bullets.splice(i,1); continue; }
+    // gates absorb bullets and grow
+    let hit=false;
+    for(let gi=0; gi<gates.length; gi++){
+      const g = gates[gi];
+      if(Math.abs(b.t-g.t)<.03 && Math.abs(b.x - g.gx) < GATE_HALF){
+        g.hits += b.dmg; sfx.gateHit();
+        if(!g.locked){
+          // digging out of the red is cheap; growth past zero gets pricier
+          const needed = g.v<0 ? 2 : 2 + Math.floor(g.posGain/6);
+          if(g.hits>=needed){ g.hits-=needed; g.v++; if(g.v>0) g.posGain++; }
+        } else if(g.hits>=14 && g.v<4){ g.hits-=14; g.v++; }   // x-gates grow slowly
+        bullets.splice(i,1); hit=true; break;
+      }
+    }
+    if(hit) continue;
+    for(let zi=0; zi<zombies.length; zi++){
+      const z = zombies[zi];
+      if(z.hp<=0) continue;
+      if(Math.abs(b.t-z.t)<.04+z.r*.3 && Math.abs(b.x-z.x)<Math.max(.085, z.r*1.5)){
+        z.hp -= b.dmg; z.flash = .07; bullets.splice(i,1);
+        if(z.hp<=0) killZombie(z);
+        else if(z===boss) bossfill.style.width = (z.hp/z.maxhp*100)+'%';
+        break;
+      }
+    }
+  }
+
+  // gates travel + apply
+  for(let i=gates.length-1;i>=0;i--){
+    const g = gates[i];
+    g.t += GATE_SPEED*(waveDone?2.5:1)*dt;
+    if(g.t>=1){
+      const onSide = Math.abs(squad.x - g.gx) < GATE_HALF + .12;
+      if(onSide){
+        const before = squad.n;
+        if(g.op==='x') squad.n = squad.n*g.v;
+        else squad.n = Math.max(0, squad.n + g.v);
+        const d = squad.n - before;
+        if(d>0){ sfx.gateGood(); addFloat(xAt(squad.x,1), yAt(1)-70, '+'+d+' SQUAD', C.cyan, true); }
+        else if(d<0){ sfx.gateBad(); addFloat(xAt(squad.x,1), yAt(1)-70, d+' SQUAD', C.pink, true); shake=Math.max(shake,6); }
+        if(squad.n<=0){ gameOver('wiped'); return; }
+      }
+      gates.splice(i,1);
+    }
+  }
+
+  // zombies travel
+  const slow = frozen?0.35:1;
+  for(let i=zombies.length-1;i>=0;i--){
+    const z = zombies[i];
+    if(z.hp<=0){ zombies.splice(i,1); continue; }
+    z.t += z.speed*slow*dt;
+    z.wob += dt*6;
+    if(z.flash>0) z.flash -= dt;
+    // straight paths — only weavers drift, and nothing homes in on the squad
+    if(z.kind==='weaver' && z.t<.85) z.x = clamp(z.baseX + Math.sin(now*2.2+z.wob*.2)*.38, -z.mx, z.mx);
+    if(z.t>=.985){
+      zombies.splice(i,1);
+      if(z===boss){ bossbar.style.display='none'; boss=null; }
+      const blocked = Math.abs(z.x - squad.x) < .28;   // squad is physically in its path
+      if(!blocked){
+        if(now<maskUntil){                             // the mask derezzes leaks
+          score += z.val*2; hudScore.textContent = score;
+          sfx.zdie(); burst(xAt(z.x,1), yAt(1)-20, GOLD, 12, 1.2);
+          addFloat(xAt(z.x,1), yAt(1)-50, 'MASKED', GOLD, false);
+          continue;
+        }
+        gameOver('breach'); return;                    // one gets past you — level lost
+      }
+      if(now<maskUntil){
+        sfx.zdie(); burst(xAt(squad.x,1), yAt(1)-30, GOLD, 10, 1);
+        addFloat(xAt(squad.x,1), yAt(1)-54, 'MASKED', GOLD, false);
+      } else if(now<shieldUntil){
+        sfx.zdie(); burst(xAt(squad.x,1), yAt(1)-30, C.cyan, 10, 1);
+        addFloat(xAt(squad.x,1), yAt(1)-54, 'BLOCKED', C.cyan, false);
+      } else {
+        squad.n -= z.power; sfx.hurt(); shake=Math.max(shake, z.power>4?12:7);
+        burst(xAt(squad.x,1), yAt(1), C.pink, 14, 1.2);
+        addFloat(xAt(squad.x,1), yAt(1)-54, '-'+Math.min(z.power,99), C.pink, z.power>4);
+        if(squad.n<=0){ gameOver('wiped'); return; }
+      }
+    }
+  }
+
+  // drops travel + pickup
+  for(let i=drops.length-1;i>=0;i--){
+    const d = drops[i];
+    d.t += DROP_SPEED*sweep*dt;
+    d.spin += dt*3;
+    if(d.t>=.9 && Math.abs(d.x-squad.x)<.24){ collectDrop(d.kind); drops.splice(i,1); continue; }
+    if(d.t>=1) drops.splice(i,1);
+  }
+
+  // particles & floats
+  for(let i=parts.length-1;i>=0;i--){
+    const p=parts[i]; p.life-=dt;
+    if(p.life<=0){ parts.splice(i,1); continue; }
+    p.x+=p.vx*dt; p.y+=p.vy*dt; p.vy+=340*dt;
+  }
+  for(let i=floats.length-1;i>=0;i--){
+    const f=floats[i]; f.life-=dt*.8; f.y-=34*dt;
+    if(f.life<=0) floats.splice(i,1);
+  }
+  hudSquad.textContent = squad.n;
+
+  // the level ends only when the wave-end line has arrived and the road is truly clear
+  if(spawner.left<=0 && zombies.length===0 && (!endLine || endLine.t>=1)
+     && coins.length===0 && drops.length===0 && gates.length===0
+     && state===ST.PLAY) levelCleared();
+}
+
+function killZombie(z){
+  score += z.val * (now<maskUntil ? 2 : 1);   // the mask doubles everything
+  hudScore.textContent = score;
+  sfx.zdie();
+  burst(xAt(z.x,z.t), yAt(z.t), z.kind==='boss'?C.pink:C.grid, 8+Math.round(z.r*60), .8+z.r*3);
+  addFloat(xAt(z.x,z.t), yAt(z.t), '+'+z.val, C.orange, false);
+  if(z===boss){ bossbar.style.display='none'; boss=null; shake=Math.max(shake,14); flashA=.5; sfx.nuke(); }
+  if(z.kind==='splitter' && z.t<.93){                     // breaks into two minis
+    spawnZombie('mini', z.x-.07, z.t);
+    spawnZombie('mini', z.x+.07, z.t);
+  }
+  if(Math.random() < (z.kind==='tank'?.28: z.kind==='boss'?1: z.kind==='mini'?.01:.035)) spawnDrop(z.x, z.t);
+}
+
+function collectDrop(kind){
+  inv[kind] = (inv[kind]||0) + 1;
+  saveInv(); renderItems();
+  sfx.coin();
+  addFloat(xAt(squad.x,1), yAt(1)-60, '+ '+ITEM_NAME[kind], DROP_COL[kind], false);
+}
+function useItem(kind){
+  if(state!==ST.PLAY || !inv[kind]) return;
+  inv[kind]--; saveInv(); renderItems();
+  activateItem(kind);
+}
+function renderItems(){
+  const row = $('items'); row.innerHTML = '';
+  for(let i=0;i<ITEM_ORDER.length;i++){
+    const k = ITEM_ORDER[i], n = inv[k]||0;
+    if(!n) continue;
+    const b = document.createElement('button');
+    b.className = 'item-btn';
+    b.style.color = DROP_COL[k]; b.style.borderColor = DROP_COL[k];
+    b.setAttribute('aria-label', 'Use '+ITEM_NAME[k]);
+    b.innerHTML = DROP_LETTER[k]+'<span class="item-n">'+n+'</span>';
+    b.addEventListener('click', function(){ useItem(k); });
+    row.appendChild(b);
+  }
+}
+function activateItem(kind){
+  sfx.power();
+  const px = xAt(squad.x,1), py = yAt(1)-60, dur = curShip().dur;
+  if(kind==='rapid'){ rapidUntil = now+8*dur; addFloat(px,py,'RAPID FIRE',C.orange,true); }
+  else if(kind==='spread'){ spreadUntil = now+8*dur; addFloat(px,py,'SPREAD SHOT',C.cyan,true); }
+  else if(kind==='freeze'){ frozenUntil = now+5*dur; addFloat(px,py,'FREEZE','#BFEFFF',true); }
+  else if(kind==='medic'){ squad.n += 5; addFloat(px,py,'+5 SQUAD',C.cyan,true); }
+  else if(kind==='barrier'){ shieldUntil = now+6*dur; addFloat(px,py,'BARRIER',C.ink,true); }
+  else if(kind==='mask'){ maskUntil = now+7*dur; flashA=.35; sfx.mask(); addFloat(px,py,'THE MASK',GOLD,true); }
+  else if(kind==='nuke'){
+    sfx.nuke(); shake=16; flashA=.45;
+    const toKill = zombies.slice();
+    for(let i=0;i<toKill.length;i++){
+      const z = toKill[i];
+      if(z===boss){ z.hp=Math.max(1,z.hp-30); bossfill.style.width=(z.hp/z.maxhp*100)+'%'; continue; }
+      if(z.hp>0){ z.hp=0; killZombie(z); }
+    }
+    zombies = zombies.filter(function(z){ return z.hp>0; });
+    addFloat(px,py,'NUKE',C.pink,true);
+  }
+}
+
+/* ---------- flow ---------- */
+const FLAVOR = [
+  'The grid hums, empty. It will not stay that way.',
+  'They are getting faster. So are you.',
+  'Something heavy is walking the far end of the grid.',
+  'Runners in the next wave. Watch the lanes.',
+  'The horde recompiles. The horde returns.',
+];
+function levelCleared(){
+  state = ST.CLEAR;
+  score += 100*level; hudScore.textContent = score;
+  const bonus = 8 + Math.round(level*1.5);
+  wallet += bonus; saveCoins(); hudCoins.textContent = wallet;   // bonus is not dice-multiplied
+  $('clear-coins').textContent = '+'+bonus+' COINS · WALLET '+wallet;
+  sfx.win();
+  $('clear-level').textContent = level;
+  // every 3rd cleared wave: roll the lucky D20 to multiply this wave's coin haul
+  const diceTime = level%3===0 && levelCoins>0;
+  $('dice-zone').hidden = !diceTime;
+  $('btn-next').hidden = diceTime;
+  if(diceTime) initDie();
+  const nb = levelConfig(level+1).isBoss;
+  const nt = levelConfig(level+1).type;
+  $('clear-flavor').textContent = nb ? 'Warning: a Mainframe Colossus leads the next wave.'
+    : nt==='rush' ? 'Incoming: a rush wave. Everything is fast.'
+    : nt==='heavy' ? 'Incoming: a heavy wave. Bring big numbers.'
+    : FLAVOR[irand(0,FLAVOR.length-1)];
+  level++;
+  if(level>progress){ progress = level; saveProg(progress); }
+  pauseBtn.hidden = true; $('items').hidden = true;
+  showScreen(scrClear);
+}
+function gameOver(reason){
+  if(state!==ST.PLAY) return;
+  state = ST.OVER;
+  $('over-reason').textContent = reason==='breach'
+    ? 'One got past the line. Nothing gets past the line.'
+    : 'The horde ate the squad.';
+  sfx.lose(); shake=6;
+  saveCoins();
+  const isBest = level>best.level || (level===best.level && score>best.score);
+  if(isBest){ best={level:level,score:score}; saveBest(best); }
+  $('over-level').textContent = level;
+  $('over-score').textContent = score;
+  $('over-best').hidden = !isBest;
+  $('btn-retry').textContent = 'RETRY LEVEL '+level;
+  bossbar.style.display='none';
+  pauseBtn.hidden = true; $('items').hidden = true;
+  showScreen(scrOver);
+}
+/* ---------- hangar (shop) ---------- */
+function shipThumb(id){
+  return getSprite(SHIPS[id].spr, 0, SHIPS[id].col).canvas.toDataURL();
+}
+function buildShop(){
+  $('shop-coins').innerHTML = '&#9670; '+wallet;
+  const list = $('ship-list'); list.innerHTML = '';
+  for(let i=0;i<SHIP_ORDER.length;i++){
+    const id = SHIP_ORDER[i], S = SHIPS[id];
+    const owned = shipData.owned.indexOf(id)>=0, sel = shipData.sel===id;
+    const card = document.createElement('div');
+    card.className = 'ship-card'+(sel?' sel':'');
+    const img = document.createElement('img');
+    img.src = shipThumb(id); img.alt = S.name;
+    const info = document.createElement('div');
+    info.className = 'ship-info';
+    info.innerHTML = '<div class="ship-name" style="color:'+S.col+'">'+S.name+'</div>'+
+                     '<div class="ship-desc">'+S.desc+'</div>';
+    const btn = document.createElement('button');
+    btn.className = 'ship-btn';
+    if(sel){ btn.textContent = 'ACTIVE'; btn.disabled = true; }
+    else if(owned){
+      btn.textContent = 'SELECT';
+      btn.addEventListener('click', function(){ shipData.sel = id; saveShips(); buildShop(); });
+    } else {
+      btn.classList.add('buy');
+      btn.innerHTML = 'BUY &#9670;'+S.price;
+      btn.disabled = wallet < S.price;
+      btn.addEventListener('click', function(){
+        if(wallet < S.price) return;
+        wallet -= S.price; saveCoins();
+        shipData.owned.push(id); shipData.sel = id; saveShips();
+        sfx.power(); buildShop(); showMenuCoins();
+      });
+    }
+    card.appendChild(img); card.appendChild(info); card.appendChild(btn);
+    list.appendChild(card);
+  }
+  const sup = $('supply-list'); sup.innerHTML = '';
+  for(let i=0;i<SUPPLIES.length;i++){
+    const it = SUPPLIES[i], k = it.k;
+    const b = document.createElement('button');
+    b.className = 'sup-btn'; b.style.borderColor = DROP_COL[k];
+    b.innerHTML = '<span class="sup-ico" style="color:'+DROP_COL[k]+'">'+DROP_LETTER[k]+'</span>'+
+                  '<span class="sup-name">'+ITEM_NAME[k]+'</span>'+
+                  '<span class="sup-price">&#9670;'+it.price+'</span>'+
+                  '<span class="sup-have">HAVE '+(inv[k]||0)+'</span>';
+    b.disabled = wallet < it.price;
+    b.addEventListener('click', function(){
+      if(wallet < it.price) return;
+      wallet -= it.price; saveCoins();
+      inv[k] = (inv[k]||0)+1; saveInv();
+      sfx.coin(); buildShop(); showMenuCoins();
+    });
+    sup.appendChild(b);
+  }
+}
+function showMenuCoins(){ $('menu-coins').textContent = wallet; }
+$('btn-hangar').addEventListener('click', function(){ audio(); hideScreen(scrStart); buildShop(); showScreen($('scr-shop')); });
+$('btn-shop-back').addEventListener('click', function(){ hideScreen($('scr-shop')); showMenu(); showScreen(scrStart); });
+$('btn-help').addEventListener('click', function(){ audio(); hideScreen(scrStart); showScreen($('scr-help')); });
+$('btn-help-back').addEventListener('click', function(){ hideScreen($('scr-help')); showMenu(); showScreen(scrStart); });
+
+/* ---------- the lucky D20: neon wireframe icosahedron ---------- */
+const dieCv = $('die'), dieCx = dieCv.getContext('2d');
+const ICO_V = (function(){
+  const p = (1+Math.sqrt(5))/2;
+  return [[-1,p,0],[1,p,0],[-1,-p,0],[1,-p,0],
+          [0,-1,p],[0,1,p],[0,-1,-p],[0,1,-p],
+          [p,0,-1],[p,0,1],[-p,0,-1],[-p,0,1]];
+})();
+const ICO_E = (function(){
+  const e = [];
+  for(let i=0;i<12;i++) for(let j=i+1;j<12;j++){
+    const a=ICO_V[i], b=ICO_V[j];
+    const d2 = (a[0]-b[0])*(a[0]-b[0]) + (a[1]-b[1])*(a[1]-b[1]) + (a[2]-b[2])*(a[2]-b[2]);
+    if(d2 < 4.1) e.push([i,j]);
+  }
+  return e;
+})();
+const die = { rx:.5, ry:.3, vx:.5, vy:.8, rolling:false, t:0, value:0, shown:0, flickT:0, tickT:0 };
+function initDie(){
+  die.rolling = false; die.t = 0; die.value = 0; die.shown = irand(1,20);
+  die.vx = .5; die.vy = .8;
+  $('roll-result').textContent = 'THIS WAVE: '+levelCoins+' COINS. RISK THE DIE?';
+  $('btn-roll').hidden = false;
+}
+function rollDie(){
+  if(die.rolling || die.value) return;
+  die.rolling = true; die.t = 0;
+  die.value = irand(1,20);
+  $('btn-roll').hidden = true;
+  $('roll-result').textContent = 'ROLLING...';
+}
+$('btn-roll').addEventListener('click', function(){ audio(); rollDie(); });
+function updateDie(dt){
+  const ROLL_T = 1.7;
+  if(die.rolling){
+    die.t += dt;
+    const k = clamp(die.t/ROLL_T, 0, 1);
+    const speed = lerp(14, .4, k*k);
+    die.vx = speed*.8; die.vy = speed;
+    die.flickT -= dt;
+    if(die.flickT<=0 && k<.92){ die.flickT = .07+k*.1; die.shown = irand(1,20); }
+    die.tickT -= dt;
+    if(die.tickT<=0 && k<.9){ die.tickT = .06+k*.12; tone(rand(1800,2600),.02,'square',.02); }
+    if(die.t>=ROLL_T){
+      die.rolling = false;
+      die.shown = die.value;
+      die.vx = .15; die.vy = .25;
+      const extra = levelCoins*(die.value-1);
+      wallet += extra; saveCoins(); hudCoins.textContent = wallet; showMenuCoins();
+      if(die.value===20){ sfx.mask(); $('roll-result').textContent = 'NAT 20! +'+extra+' COINS'; }
+      else if(die.value===1){ sfx.gateBad(); $('roll-result').textContent = 'x1 - THE GRID GIVES NOTHING'; }
+      else { sfx.gateGood(); $('roll-result').textContent = 'x'+die.value+' - +'+extra+' COINS'; }
+      $('clear-coins').textContent = 'WALLET '+wallet;
+      $('btn-next').hidden = false;
+    }
+  }
+  die.rx += die.vx*dt; die.ry += die.vy*dt;
+}
+function drawDie(){
+  const S = 360, c = S/2, R = 92;
+  dieCx.clearRect(0,0,S,S);
+  const cosx=Math.cos(die.rx), sinx=Math.sin(die.rx);
+  const cosy=Math.cos(die.ry), siny=Math.sin(die.ry);
+  const pts = [];
+  for(let i=0;i<12;i++){
+    const v = ICO_V[i];
+    let x=v[0], y=v[1], z=v[2];
+    let x1 = x*cosy + z*siny, z1 = -x*siny + z*cosy;      // rotate Y
+    let y1 = y*cosx - z1*sinx, z2 = y*sinx + z1*cosx;     // rotate X
+    const s = 3.2/(z2+4.4);
+    pts.push([c + x1*R*s, c + y1*R*s, z2]);
+  }
+  dieCx.lineWidth = 2.5;
+  dieCx.strokeStyle = C.cyan;
+  dieCx.shadowColor = C.cyan; dieCx.shadowBlur = 12;
+  for(let i=0;i<ICO_E.length;i++){
+    const a = pts[ICO_E[i][0]], b = pts[ICO_E[i][1]];
+    dieCx.globalAlpha = .35 + .55*clamp(((a[2]+b[2])/2+2)/4, 0, 1);
+    dieCx.beginPath(); dieCx.moveTo(a[0],a[1]); dieCx.lineTo(b[0],b[1]); dieCx.stroke();
+  }
+  dieCx.globalAlpha = 1;
+  dieCx.fillStyle = C.pink;
+  dieCx.shadowColor = C.pink; dieCx.shadowBlur = 10;
+  for(let i=0;i<12;i++){
+    dieCx.beginPath(); dieCx.arc(pts[i][0], pts[i][1], 4.5, 0, TAU); dieCx.fill();
+  }
+  // the number
+  dieCx.font = "64px 'Audiowide', sans-serif";
+  dieCx.textAlign = 'center'; dieCx.textBaseline = 'middle';
+  dieCx.fillStyle = GOLD;
+  dieCx.shadowColor = GOLD; dieCx.shadowBlur = 18;
+  dieCx.fillText(String(die.shown||''), c, c+4);
+  dieCx.shadowBlur = 0;
+}
+
+function showMenu(){
+  $('best-level').textContent = best.level || '–';
+  $('best-score').textContent = best.level ? best.score : '–';
+  showMenuCoins();
+  const hasProg = progress > 1;
+  $('btn-continue').hidden = !hasProg;
+  $('btn-reset').hidden = !hasProg;
+  if(hasProg){
+    $('btn-continue').textContent = 'CONTINUE · LV '+progress;
+    $('btn-start').textContent = 'NEW RUN';
+    $('btn-start').classList.add('ghost');
+  } else {
+    $('btn-start').textContent = 'ENTER THE GRID';
+    $('btn-start').classList.remove('ghost');
+  }
+}
+$('btn-start').addEventListener('click', function(){ audio(); level=1; score=0; startLevel(); });
+$('btn-continue').addEventListener('click', function(){ audio(); level=progress; score=0; startLevel(); });
+$('btn-next').addEventListener('click', function(){ audio(); startLevel(); });
+$('btn-retry').addEventListener('click', function(){ audio(); score=0; startLevel(); });
+function toMenu(from){
+  state = ST.MENU;
+  mood = 'chill';
+  hideScreen(from); hud.hidden = true; pauseBtn.hidden = true; $('items').hidden = true;
+  bossbar.style.display='none';
+  showMenu(); showScreen(scrStart);
+}
+$('btn-menu').addEventListener('click', function(){ toMenu(scrOver); });
+
+/* ---------- pause ---------- */
+function pauseGame(){
+  if(state!==ST.PLAY) return;
+  state = ST.PAUSE;
+  showScreen(scrPause);
+}
+function resumeGame(){
+  if(state!==ST.PAUSE) return;
+  state = ST.PLAY;
+  hideScreen(scrPause);
+}
+pauseBtn.addEventListener('click', pauseGame);
+$('btn-resume').addEventListener('click', function(){ audio(); resumeGame(); });
+$('btn-quit').addEventListener('click', function(){ toMenu(scrPause); });
+window.addEventListener('keydown', function(e){
+  if(e.key==='Escape' || e.key==='p'){ state===ST.PAUSE ? resumeGame() : pauseGame(); }
+});
+$('btn-reset').addEventListener('click', function(){ progress = 1; saveProg(1); showMenu(); });
+showMenu();
+
+/* ---------- render helpers ---------- */
+function neon(color, blur, width){
+  cx.strokeStyle = color;
+  cx.shadowColor = color;
+  cx.shadowBlur = Q.glow ? blur : 0;
+  cx.lineWidth = width;
+}
+function noGlow(){ cx.shadowBlur = 0; }
+
+/* ---------- backdrop ---------- */
+function drawBackdrop(){
+  const hy = H*HORIZON;
+  // sky
+  const sky = cx.createLinearGradient(0,0,0,hy);
+  sky.addColorStop(0,'#0B0420'); sky.addColorStop(.7,C.void2); sky.addColorStop(1,'#4A1660');
+  cx.fillStyle = sky; cx.fillRect(0,0,W,hy+2);
+  // stars
+  cx.fillStyle = C.ink;
+  for(let i=0;i<stars.length;i++){
+    const s = stars[i];
+    cx.globalAlpha = .35 + .45*Math.abs(Math.sin(now*.7+s.p));
+    cx.fillRect(s.x, s.y, s.r, s.r);
+  }
+  cx.globalAlpha = 1;
+  // synthwave sun
+  const sr = Math.min(W,H)*0.20, sunY = hy+sr*0.12;
+  cx.save();
+  cx.beginPath(); cx.arc(W/2, sunY, sr, Math.PI, 0); cx.closePath(); cx.clip();
+  const sg = cx.createLinearGradient(0,sunY-sr,0,sunY);
+  sg.addColorStop(0,C.sunTop); sg.addColorStop(1,C.sunBot);
+  cx.fillStyle = sg;
+  glow(C.pink, 40);
+  cx.fillRect(W/2-sr, sunY-sr, sr*2, sr);
+  noGlow();
+  // scanline slits, thicker near the bottom, slowly drifting
+  cx.fillStyle = '#0B0420';
+  for(let k=0;k<7;k++){
+    const yy = sunY - sr + sr*Math.pow((k+ (now*.06)%1 )/7, .8)*1.05;
+    cx.fillRect(W/2-sr, yy, sr*2, 1.5 + k*1.1);
+  }
+  cx.restore();
+  drawMountains(hy);
+  // ground
+  cx.fillStyle = '#0A0320'; cx.fillRect(0,hy,W,H-hy);
+  // horizon glow line
+  neon(C.pink, 12, 2);
+  cx.beginPath(); cx.moveTo(0,hy); cx.lineTo(W,hy); cx.stroke();
+  noGlow();
+}
+
+function drawGrid(){
+  const hy = H*HORIZON;
+  // longitudinal lines fanning out from the vanishing point (whole floor)
+  neon(C.gridDim, 4, 1);
+  for(let wx=-4; wx<=4; wx+=0.5){
+    if(wx>=-1 && wx<=1) continue;             // road area drawn brighter below
+    cx.beginPath();
+    cx.moveTo(xAt(wx,0.02), yAt(0.02));
+    cx.lineTo(bottomX(wx), H);
+    cx.stroke();
+  }
+  // horizontal grid sweeping toward the viewer
+  for(let k=0;k<14;k++){
+    const t = ((k/14) + (now*.055)%(1/14));
+    if(t>1) continue;
+    const a = .15 + .5*persp(t);
+    cx.globalAlpha = a;
+    neon(C.grid, 5, 1 + 1.6*scaleAt(t));
+    cx.beginPath();
+    cx.moveTo(0, yAt(t)); cx.lineTo(W, yAt(t));
+    cx.stroke();
+  }
+  cx.globalAlpha = 1;
+  // the road: dark strip + neon rails + lane divider
+  cx.beginPath();
+  cx.moveTo(xAt(-1,0.02), yAt(0.02));
+  cx.lineTo(xAt(1,0.02), yAt(0.02));
+  cx.lineTo(bottomX(1.04), H);
+  cx.lineTo(bottomX(-1.04), H);
+  cx.closePath();
+  cx.fillStyle = 'rgba(18,8,41,.55)';
+  cx.fill();
+  for(let s=-1; s<=1; s+=2){                   // just the two rails — no center divider
+    neon(C.pink, 10, 2.5);
+    cx.beginPath();
+    cx.moveTo(xAt(s,0.02), yAt(0.02));
+    cx.lineTo(bottomX(s), H);
+    cx.stroke();
+  }
+  noGlow();
+}
+
+/* ---------- entity rendering ---------- */
+/* ---------- pixel sprites (Space Invaders style) ---------- */
+const PIX = {
+  walker: [[  // three-eyed horned imp (original design)
+    '.X.......X.',
+    '..X.....X..',
+    '..XXXXXXX..',
+    '.XXXXXXXXX.',
+    'XX.X.X.X.XX',
+    'XXXXXXXXXXX',
+    '..X..X..X..',
+    '.X...X...X.',
+  ],[
+    'X.........X',
+    '.X.......X.',
+    '..XXXXXXX..',
+    '.XXXXXXXXX.',
+    'XX.X.X.X.XX',
+    'XXXXXXXXXXX',
+    '.X..X...X..',
+    'X..X...X...',
+  ]],
+  runner: [[  // winged dart (original design)
+    '...XX...',
+    '..XXXX..',
+    'X.X..X.X',
+    'XXXXXXXX',
+    '.XXXXXX.',
+    '..XXXX..',
+    '...XX...',
+    '..X..X..',
+  ],[
+    '...XX...',
+    'X.XXXX.X',
+    '.XX..XX.',
+    'XXXXXXXX',
+    '.XXXXXX.',
+    '..XXXX..',
+    '..X..X..',
+    '.X....X.',
+  ]],
+  tank: [[  // visored mech-beetle (original design)
+    '.X.XXXXXX.X.',
+    'XXXXXXXXXXXX',
+    'XX..XXXX..XX',
+    'XXXXXXXXXXXX',
+    '.XXXXXXXXXX.',
+    '..XX.XX.XX..',
+    '..XX.XX.XX..',
+    '.X....X...X.',
+  ],[
+    '.X.XXXXXX.X.',
+    'XXXXXXXXXXXX',
+    'XX..XXXX..XX',
+    'XXXXXXXXXXXX',
+    '.XXXXXXXXXX.',
+    '..XX.XX.XX..',
+    '.XX..XX..XX.',
+    'X...X....X..',
+  ]],
+  splitter: [[  // wide beetle, visibly two-halved
+    '.XX.....XX.',
+    '..X.XXX.X..',
+    '.XXXX.XXXX.',
+    'XX.XX.XX.XX',
+    'XXXXX.XXXXX',
+    '.XXXX.XXXX.',
+    '..XX...XX..',
+    '.X.......X.',
+  ],[
+    '.XX.....XX.',
+    'X.X.XXX.X.X',
+    '.XXXX.XXXX.',
+    'XX.XX.XX.XX',
+    'XXXXX.XXXXX',
+    '.XXXX.XXXX.',
+    '.X.X...X.X.',
+    'X.........X',
+  ]],
+  mini: [[  // little bug
+    '.X..X.',
+    '.XXXX.',
+    'XX..XX',
+    'XXXXXX',
+    '.X..X.',
+  ],[
+    'X.XX.X',
+    '.XXXX.',
+    'XX..XX',
+    'XXXXXX',
+    'X....X',
+  ]],
+  weaver: [[  // antennaed drifter
+    'X...X...X',
+    '.X..X..X.',
+    '..XXXXX..',
+    '.XX.X.XX.',
+    'XXXXXXXXX',
+    '.X.XXX.X.',
+    '.X.....X.',
+    '..X...X..',
+  ],[
+    '.X..X..X.',
+    'X...X...X',
+    '..XXXXX..',
+    '.XX.X.XX.',
+    'XXXXXXXXX',
+    '.X.XXX.X.',
+    'X..X.X..X',
+    '.........',
+  ]],
+  boss: [[  // mothership
+    '.....XXXXXX.....',
+    '...XXXXXXXXXX...',
+    '..XXXXXXXXXXXX..',
+    '.XX.XX.XX.XX.XX.',
+    'XXXXXXXXXXXXXXXX',
+    '..XXX..XX..XXX..',
+    '....X......X....',
+  ],[
+    '.....XXXXXX.....',
+    '...XXXXXXXXXX...',
+    '..XXXXXXXXXXXX..',
+    '.X.XX.XX.XX.XX..',
+    'XXXXXXXXXXXXXXXX',
+    '..XXX..XX..XXX..',
+    '...X........X...',
+  ]],
+  cannon: [[  // VIPER — delta-wing fighter, animated exhaust (original design)
+    '.....X.....',
+    '....XXX....',
+    '....XXX....',
+    '.X.XXXXX.X.',
+    'XX.XXXXX.XX',
+    'XXXXXXXXXXX',
+    'X.XXX.XXX.X',
+    '....X.X....',
+  ],[
+    '.....X.....',
+    '....XXX....',
+    '....XXX....',
+    '.X.XXXXX.X.',
+    'XX.XXXXX.XX',
+    'XXXXXXXXXXX',
+    'X.XXX.XXX.X',
+    '...X...X...',
+  ]],
+  ship_wasp: [[  // WASP — swept-back interceptor
+    '.....X.....',
+    '....XXX....',
+    'X...XXX...X',
+    'XX.XXXXX.XX',
+    'XXXXXXXXXXX',
+    '.XXX.X.XXX.',
+    '..X.....X..',
+  ]],
+  ship_talon: [[  // TALON — twin-prong gunship
+    '..X.....X..',
+    '..XX...XX..',
+    '..XXX.XXX..',
+    '.XXXXXXXXX.',
+    'XXXXXXXXXXX',
+    'XX.XXXXX.XX',
+    '....X.X....',
+  ]],
+  ship_aegis: [[  // AEGIS — wide shield cruiser
+    '.....X.....',
+    '..XXXXXXX..',
+    '.XXXXXXXXX.',
+    'XXXXXXXXXXX',
+    'XXXXXXXXXXX',
+    '.XX.XXX.XX.',
+    '..X..X..X..',
+  ]],
+  ship_phantom: [[  // PHANTOM — stealth arrow
+    '.....X.....',
+    '....XXX....',
+    '...XXXXX...',
+    '..XXXXXXX..',
+    '.XXX.X.XXX.',
+    'XXX..X..XXX',
+    '.X...X...X.',
+  ]],
+};
+const SPR_CELL = 6, SPR_PAD = 12;
+const spriteCache = {};
+function getSprite(kind, frame, color){
+  const frames = PIX[kind];
+  const rows = frames[frame % frames.length];
+  const key = kind+'|'+(frame % frames.length)+'|'+color;
+  let s = spriteCache[key];
+  if(s) return s;
+  const cols = rows[0].length, nrows = rows.length;
+  const c = document.createElement('canvas');
+  c.width = cols*SPR_CELL + SPR_PAD*2;
+  c.height = nrows*SPR_CELL + SPR_PAD*2;
+  const g = c.getContext('2d');
+  g.fillStyle = color;
+  for(let pass=0; pass<2; pass++){
+    g.shadowColor = color;
+    g.shadowBlur = pass===0 ? 9 : 0;      // pass 0 lays down the glow, pass 1 the crisp pixels
+    for(let y=0;y<nrows;y++) for(let x=0;x<cols;x++)
+      if(rows[y][x]==='X') g.fillRect(SPR_PAD+x*SPR_CELL, SPR_PAD+y*SPR_CELL, SPR_CELL, SPR_CELL);
+  }
+  s = { canvas:c, w:c.width, h:c.height, cols:cols, nrows:nrows };
+  spriteCache[key] = s;
+  return s;
+}
+// draws a sprite with its body width equal to wpx, feet at (px,py)
+function blitSprite(s, px, py, wpx){
+  const scale = wpx / (s.cols*SPR_CELL);
+  cx.imageSmoothingEnabled = false;
+  cx.drawImage(s.canvas, px - s.w*scale/2, py - s.h*scale + SPR_PAD*scale, s.w*scale, s.h*scale);
+  cx.imageSmoothingEnabled = true;
+  return scale;
+}
+
+function drawSoldier(px,py,u){
+  const S = curShip();
+  const frame = Math.floor(now*9)%2;    // engine flicker (single-frame ships ignore it)
+  blitSprite(getSprite(S.spr, frame, now<maskUntil ? GOLD : S.col), px, py+7*u, 19*u);
+}
+function drawEndLine(){
+  const t = endLine.t, s = scaleAt(t), y = yAt(t);
+  const x0 = xAt(-1,t), x1 = xAt(1,t);
+  const n = 12, w = (x1-x0)/n, h = Math.max(3, 6*s);
+  for(let r=0; r<2; r++){
+    for(let i=0; i<n; i++){
+      cx.fillStyle = (i+r)%2 ? C.cyan : 'rgba(6,2,16,.85)';
+      cx.fillRect(x0+i*w, y-h*(r+1), w+.5, h);
+    }
+  }
+  neon(C.cyan, 10, 1.5);
+  cx.beginPath(); cx.moveTo(x0,y); cx.lineTo(x1,y); cx.stroke();
+  noGlow();
+  cx.font = Math.max(9, 11*s)+"px 'Audiowide', sans-serif";
+  cx.textAlign = 'center'; cx.textBaseline = 'alphabetic';
+  cx.fillStyle = C.cyan;
+  glow(C.cyan, 8);
+  cx.fillText('WAVE END', (x0+x1)/2, y-h*2-5*s);
+  noGlow();
+}
+// red laser sight up the center of the line of fire — runs the full road, fading slightly with depth
+function drawAim(){
+  // both endpoints sit on the true projected line, so it stays parallel to the rails
+  const tNear = .955, tFar = .02;
+  const x0 = xAt(squad.x,tNear), y0 = yAt(tNear);
+  const x1 = xAt(squad.x,tFar),  y1 = yAt(tFar);
+  const g = cx.createLinearGradient(x0,y0,x1,y1);
+  g.addColorStop(0,  'rgba(255,51,85,.6)');
+  g.addColorStop(.6, 'rgba(255,51,85,.35)');
+  g.addColorStop(1,  'rgba(255,51,85,.18)');
+  cx.strokeStyle = g; cx.lineWidth = 2.5;
+  glow('#FF3355', 8);
+  cx.setLineDash([9,6]);
+  cx.lineDashOffset = (now*52)%15;
+  cx.beginPath(); cx.moveTo(x0,y0); cx.lineTo(x1,y1); cx.stroke();
+  cx.setLineDash([]);
+  cx.shadowBlur = 0;
+}
+// roadside ranges: rigid low-poly 3D mountains. Vertices live in world space —
+// each peak keeps its height from the moment it appears and slides toward the player.
+function drawSideRanges(){
+  const sp = .085, v = now*.055;                 // vertex spacing in track units, grid-synced scroll
+  const i0 = Math.floor(-v/sp) - 1;
+  for(let m=0;m<2;m++){
+    const side = m===0 ? -1 : 1;
+    const B = [], P = [], O = [];
+    for(let i=i0; i*sp+v <= 1.12; i++){
+      const t = clamp(i*sp + v, 0, 1.04);
+      const h = ridgeH(i*sp*9) * scaleAt(t) * H * .12;   // height fixed per vertex index — static shape
+      B.push([xAt(side*1.10,t), yAt(t)]);                 // inner base, at the road shoulder
+      P.push([xAt(side*1.36,t), yAt(t)-h]);               // ridge crest
+      O.push([xAt(side*1.72,t), yAt(t)-h*.3]);            // outer back edge, lower
+    }
+    // back slope (dark, facing away)
+    cx.fillStyle = 'rgba(13,5,34,.94)';
+    cx.strokeStyle = 'rgba(123,47,190,.3)'; cx.lineWidth = 1;
+    for(let i=0;i<P.length-1;i++){
+      cx.beginPath();
+      cx.moveTo(P[i][0],P[i][1]); cx.lineTo(P[i+1][0],P[i+1][1]);
+      cx.lineTo(O[i+1][0],O[i+1][1]); cx.lineTo(O[i][0],O[i][1]);
+      cx.closePath(); cx.fill(); cx.stroke();
+    }
+    // front slope: alternating shaded facets for the low-poly look
+    for(let i=0;i<P.length-1;i++){
+      const cA = i%2 ? 'rgba(46,19,92,.9)' : 'rgba(66,28,124,.9)';
+      const cB = i%2 ? 'rgba(66,28,124,.9)' : 'rgba(46,19,92,.9)';
+      cx.beginPath();
+      cx.moveTo(B[i][0],B[i][1]); cx.lineTo(B[i+1][0],B[i+1][1]); cx.lineTo(P[i][0],P[i][1]);
+      cx.closePath(); cx.fillStyle = cA; cx.fill();
+      cx.beginPath();
+      cx.moveTo(B[i+1][0],B[i+1][1]); cx.lineTo(P[i+1][0],P[i+1][1]); cx.lineTo(P[i][0],P[i][1]);
+      cx.closePath(); cx.fillStyle = cB; cx.fill();
+    }
+    // facet edges
+    cx.strokeStyle = 'rgba(123,47,190,.45)'; cx.lineWidth = 1;
+    cx.beginPath();
+    for(let i=0;i<P.length;i++){ cx.moveTo(B[i][0],B[i][1]); cx.lineTo(P[i][0],P[i][1]); }
+    cx.stroke();
+    // neon crest
+    neon(C.grid, 7, 1.4);
+    cx.beginPath();
+    cx.moveTo(P[0][0],P[0][1]);
+    for(let i=1;i<P.length;i++) cx.lineTo(P[i][0],P[i][1]);
+    cx.stroke();
+    noGlow();
+  }
+}
+function drawDefenseLine(){
+  const t = .985, y = yAt(t);
+  const x0 = xAt(-1.06,t), x1 = xAt(1.06,t);
+  const danger = zombies.some ? zombies.some(function(z){ return z.t>.8; }) : false;
+  const pulse = .5 + .35*Math.sin(now*(danger?11:4.5));
+  cx.globalAlpha = pulse;
+  neon(C.pink, 16, 3);
+  cx.beginPath(); cx.moveTo(x0,y); cx.lineTo(x1,y); cx.stroke();
+  cx.lineWidth = 2;
+  for(let x=x0; x<x1; x+=16){            // hazard ticks
+    cx.beginPath(); cx.moveTo(x,y); cx.lineTo(x+8,y+7); cx.stroke();
+  }
+  noGlow();
+  cx.globalAlpha = Math.min(1,pulse+.25);
+  cx.font = "9px 'Audiowide', sans-serif";
+  cx.textAlign = 'left'; cx.textBaseline = 'alphabetic';
+  cx.fillStyle = C.pink;
+  cx.fillText('DEFENSE LINE', x0+6, y+18);
+  cx.globalAlpha = 1;
+}
+function drawCoin(c){
+  const s = scaleAt(c.t), px = xAt(c.x,c.t), py = yAt(c.t)-8*s;
+  const w = Math.max(2, 8*s*Math.abs(Math.sin(c.spin)));   // spin = width squash
+  cx.fillStyle = GOLD;
+  glow(GOLD, 8*s);
+  cx.fillRect(px-w/2, py-5*s, w, 10*s);
+  cx.shadowBlur = 0;
+}
+
+function drawZombie(z){
+  const t=z.t;
+  const frozen = now<frozenUntil;
+  const col = z.flash>0 ? '#FFFFFF'
+            : frozen ? '#9FD0FF'
+            : z.kind==='tank' ? '#B84FFF'
+            : z.kind==='boss' ? C.pink
+            : z.kind==='runner' ? '#FF7CBE'
+            : z.kind==='splitter' ? C.orange
+            : z.kind==='mini' ? '#FFB84F'
+            : z.kind==='weaver' ? '#C86BFF'
+            : C.pink;
+  const frame = Math.floor(now*3.5 + z.wob) % 2;
+  const s = getSprite(z.kind==='walker'?'walker':z.kind, frame, col);
+  const px = xAt(z.x,t), py = yAt(t);
+  const wpx = Math.max(8, z.r*3.1*roadHalf(t)) * (W<520?1:1.1);
+  blitSprite(s, px, py, wpx);
+  const topY = py - wpx*(s.nrows/s.cols);
+  // health bar over every head
+  {
+    const frac = clamp(z.hp/z.maxhp, 0, 1);
+    const bw = Math.max(9, wpx*1.05), bh = Math.max(2, wpx*.07);
+    cx.fillStyle='rgba(6,2,16,.75)';
+    cx.fillRect(px-bw/2, topY-bh-3, bw, bh);
+    cx.fillStyle = frac>.5 ? C.orange : C.pink;
+    cx.fillRect(px-bw/2, topY-bh-3, bw*frac, bh);
+  }
+  if(z.kind==='boss'){
+    cx.font = Math.max(9, wpx*.13)+"px 'Audiowide', sans-serif";
+    cx.textAlign='center'; cx.textBaseline='alphabetic';
+    cx.fillStyle=C.pink;
+    glow(C.pink, 8);
+    cx.fillText('COLOSSUS', px, topY-6);
+    noGlow();
+  }
+}
+
+function drawGate(g){
+  const t=g.t, s=scaleAt(t);
+  const x0 = xAt(g.gx-GATE_HALF, t);
+  const x1 = xAt(g.gx+GATE_HALF, t);
+  const y = yAt(t), gh = 46*s;
+  const good = g.op==='x' || g.v>0;
+  const col = good ? C.orange : C.pink;
+  cx.fillStyle = good ? 'rgba(255,158,31,.13)' : 'rgba(255,46,151,.13)';
+  cx.fillRect(x0, y-gh, x1-x0, gh);
+  neon(col, 10, Math.max(1.5, 2.5*s));
+  cx.strokeRect(x0, y-gh, x1-x0, gh);
+  // posts
+  cx.beginPath();
+  cx.moveTo(x0, y-gh-8*s); cx.lineTo(x0, y);
+  cx.moveTo(x1, y-gh-8*s); cx.lineTo(x1, y);
+  cx.stroke();
+  noGlow();
+  // value
+  // the gate is narrow, so the value floats above it
+  const label = g.op==='x' ? '×'+g.v : (g.v>0?'+':'')+g.v;
+  cx.font = Math.max(10, 16*s)+"px 'Audiowide', sans-serif";
+  cx.textAlign='center'; cx.textBaseline='middle';
+  cx.fillStyle = col;
+  glow(col, 14*s);
+  cx.fillText(label, (x0+x1)/2, y-gh-12*s);
+  noGlow();
+}
+
+const DROP_LETTER = { rapid:'R', spread:'S', freeze:'F', medic:'+', nuke:'N', barrier:'B', mask:'M' };
+const DROP_COL = { rapid:'#FF9E1F', spread:'#2DE2FF', freeze:'#BFEFFF', medic:'#2DE2FF', nuke:'#FF2E97', barrier:'#F4EDFF', mask:'#FFE23F' };
+function drawDrop(d){
+  const s=scaleAt(d.t), px=xAt(d.x,d.t), py=yAt(d.t)-16*s;
+  const r = 16*s * (1+Math.sin(d.spin)*.08);
+  const col = DROP_COL[d.kind];
+  cx.fillStyle='rgba(10,3,26,.85)';
+  neon(col, 10, 2*s);
+  cx.beginPath();
+  // rotating hex
+  for(let i=0;i<6;i++){
+    const a = d.spin*.6 + i/6*TAU;
+    const hx = px+Math.cos(a)*r, hyy = py+Math.sin(a)*r;
+    if(i===0) cx.moveTo(hx,hyy); else cx.lineTo(hx,hyy);
+  }
+  cx.closePath(); cx.fill(); cx.stroke();
+  noGlow();
+  cx.font = Math.max(9, 13*s)+"px 'Audiowide', sans-serif";
+  cx.textAlign='center'; cx.textBaseline='middle';
+  cx.fillStyle=col;
+  cx.fillText(DROP_LETTER[d.kind], px, py+1);
+}
+
+/* ---------- main render ---------- */
+function render(){
+  cx.save();
+  if(shake>0) cx.translate(rand(-shake,shake), rand(-shake,shake));
+  drawBackdrop();
+  drawGrid();
+  drawSideRanges();
+
+  if(state!==ST.MENU){
+    drawDefenseLine();
+    if(squad && squad.n>0 && (state===ST.PLAY || state===ST.PAUSE)) drawAim();
+    if(endLine && endLine.t<1) drawEndLine();
+    // far -> near
+    const order = [];
+    for(let i=0;i<gates.length;i++){ const g=gates[i]; order.push({t:g.t, kind:0, o:g}); }
+    for(let i=0;i<zombies.length;i++){ const z=zombies[i]; order.push({t:z.t, kind:1, o:z}); }
+    for(let i=0;i<drops.length;i++){ const d=drops[i]; order.push({t:d.t, kind:2, o:d}); }
+    for(let i=0;i<coins.length;i++){ const c=coins[i]; if(c.t>0) order.push({t:c.t, kind:3, o:c}); }
+    order.sort(function(a,b){ return a.t-b.t; });
+    for(let i=0;i<order.length;i++){
+      const e = order[i];
+      if(e.kind===0) drawGate(e.o);
+      else if(e.kind===1) drawZombie(e.o);
+      else if(e.kind===2) drawDrop(e.o);
+      else drawCoin(e.o);
+    }
+
+    // bullets — batched by line width, so the glow costs a handful of blur
+    // passes per frame instead of one per tracer (there can be 400+)
+    if(bullets.length){
+      const byWidth = {};
+      for(let i=0;i<bullets.length;i++){
+        const b=bullets[i], s=scaleAt(b.t), px=xAt(b.x,b.t), py=yAt(b.t)-16*s;
+        const w = Math.max(1, Math.round((2 + Math.min(3, (b.dmg||1)-1))*s));
+        const a = byWidth[w] || (byWidth[w] = []);
+        a.push(px, py, py-9*s);
+      }
+      for(const w in byWidth){
+        const a = byWidth[w];
+        neon(C.cyan, 6, +w);
+        cx.beginPath();
+        for(let i=0;i<a.length;i+=3){ cx.moveTo(a[i], a[i+1]); cx.lineTo(a[i], a[i+2]); }
+        cx.stroke();
+      }
+      noGlow();
+    }
+
+    // squad
+    if(state!==ST.OVER && squad && squad.n>0){
+      const offs = squadOffsets(Math.min(squad.n, MAX_DRAWN));
+      const u = W<520?1:1.2;
+      const sorted = offs.slice().sort(function(a,b){ return a[1]-b[1]; });
+      for(let i=0;i<sorted.length;i++){
+        const o = sorted[i];
+        const px = xAt(clamp(squad.x+o[0],-1,1),1);
+        const py = yAt(1) + o[1]*roadHalf(1)*.9;
+        drawSoldier(px,py,u);
+      }
+      // barrier dome
+      if(now<shieldUntil){
+        const cxp = xAt(squad.x,1), cyp = yAt(1)-6*u;
+        const rr = (26 + Math.sqrt(squad.n)*8) * u;
+        cx.globalAlpha = .5 + .3*Math.sin(now*6);
+        neon(C.cyan, 14, 2);
+        cx.beginPath(); cx.arc(cxp, cyp, rr, Math.PI*1.05, Math.PI*1.95); cx.stroke();
+        cx.globalAlpha = 1; noGlow();
+      }
+      // active-buff pips hover above the fleet (count itself lives in the HUD)
+      const buffs = [];
+      if(now<rapidUntil) buffs.push(C.orange);
+      if(now<spreadUntil) buffs.push(C.cyan);
+      if(now<frozenUntil) buffs.push('#BFEFFF');
+      if(now<shieldUntil) buffs.push(C.ink);
+      if(now<maskUntil) buffs.push(GOLD);
+      let bpx = xAt(squad.x,1) - (buffs.length-1)*5.5*u;
+      const bpy = yAt(1) - 42*u;
+      for(let i=0;i<buffs.length;i++){
+        cx.fillStyle=buffs[i];
+        glow(buffs[i], 6);
+        cx.beginPath(); cx.arc(bpx, bpy, 3.5*u, 0, TAU); cx.fill();
+        bpx += 11*u;
+      }
+      noGlow();
+    }
+
+    // particles
+    for(let i=0;i<parts.length;i++){
+      const p=parts[i];
+      cx.globalAlpha = clamp(p.life*2,0,1);
+      cx.fillStyle=p.color;
+      glow(p.color, 6);
+      cx.fillRect(p.x-2,p.y-2,4,4);
+    }
+    cx.globalAlpha=1; noGlow();
+
+    // floats
+    for(let i=0;i<floats.length;i++){
+      const f=floats[i];
+      cx.globalAlpha = clamp(f.life,0,1);
+      cx.font = (f.big?21:12)+"px 'Audiowide', sans-serif";
+      cx.textAlign='center';
+      cx.fillStyle = f.color;
+      glow(f.color, 10);
+      cx.fillText(f.txt, f.x, f.y);
+    }
+    cx.globalAlpha=1; noGlow();
+
+    if(now<frozenUntil){
+      cx.fillStyle='rgba(140,210,255,.06)'; cx.fillRect(0,0,W,H);
+    }
+  }
+  if(flashA>0){
+    cx.fillStyle='rgba(255,255,255,'+flashA.toFixed(3)+')';
+    cx.fillRect(0,0,W,H);
+  }
+  cx.restore();
+}
+
+/* ---------- the coffee link ----------
+   Not every host will let a page open a tab: a sandboxed frame (an artifact
+   preview, an embed) blocks window.open outright, and some in-app webviews do
+   too. Opening it by hand keeps the normal case working and, where it is
+   refused, turns the button into the address itself rather than leaving a
+   control that does nothing when tapped. */
+(function(){
+  const link = document.querySelector('.donate');
+  if(!link) return;
+  const url = link.href;
+  link.addEventListener('click', function(e){
+    e.preventDefault();
+    // Passing 'noopener' in the feature string makes window.open return null by
+    // spec, which is indistinguishable from being blocked — so ask for the
+    // window, then sever the reference ourselves.
+    let win = null;
+    try{ win = window.open(url, '_blank'); }catch(err){}
+    if(win){ try{ win.opener = null; }catch(err){} return; }
+    link.classList.add('blocked');
+    link.textContent = '\u2615 ' + url.replace(/^https?:\/\//, '');
+    link.title = url;
+  });
+})();
+
+/* ---------- main loop ---------- */
+resize();
+updateGfxBtn();
+if(document.fonts){ document.fonts.load("12px 'Audiowide'"); document.fonts.load("12px 'Righteous'"); document.fonts.load("12px 'Mr Dafoe'"); }   // canvas text needs the face ready
+let lastT = performance.now();
+const FRAME_MS = 1000/60 - 1.5;    // 120Hz panels otherwise render twice the frames for nothing
+const IDLE_MS  = 1000/30 - 1.5;    // menus can sit open for ages; half the frames will do
+let lastDraw = -1e9, slowAcc = 0, slowN = 0;
+function frame(tms){
+  requestAnimationFrame(frame);
+  const cap = (state === ST.MENU || state === ST.PAUSE) ? IDLE_MS : FRAME_MS;
+  if(tms - lastDraw < cap) return;
+  lastDraw = tms;
+  const dt = Math.min(.05, (tms-lastT)/1000); lastT = tms;
+  now += dt;
+  shake = Math.max(0, shake-30*dt);   // decays in every state, so overlays never sit on a jittering canvas
+  flashA = Math.max(0, flashA-dt*1.4);
+  if(state===ST.PLAY) update(dt);
+  render();
+  if(state===ST.CLEAR && !$('dice-zone').hidden){ updateDie(dt); drawDie(); }
+  // if the device cannot hold the pace, shed the expensive effects once
+  if(qPref === 'auto' && qTier === 'high'){
+    slowAcc += dt; slowN++;
+    if(slowN >= 120){
+      const avg = slowAcc/slowN; slowAcc = 0; slowN = 0;
+      if(avg > 0.024) setTier('low');     // sustained under ~42fps
+    }
+  }
+}
+
+
+
+
+
+
+requestAnimationFrame(frame);
+document.addEventListener('visibilitychange', function(){
+  lastT = performance.now();
+  if(document.hidden){ pauseGame(); stopMusic(); if(AC) AC.suspend(); }
+  else if(!musicOff){ if(AC) AC.resume(); startMusic(); }
+});
+</script>
+</body>
+</html>

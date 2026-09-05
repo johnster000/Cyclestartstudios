@@ -1,0 +1,2941 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#120829">
+<title>Catdoku</title>
+<style>
+  @font-face{
+    font-family:'Righteous'; font-style:normal; font-weight:400; font-display:swap;
+    src:url('fonts/righteous.woff2') format('woff2');
+  }
+  @font-face{
+    font-family:'Mr Dafoe'; font-style:normal; font-weight:400; font-display:swap;
+    src:url('fonts/mrdafoe.woff2') format('woff2');
+  }
+  @font-face{
+    font-family:'Audiowide'; font-style:normal; font-weight:400; font-display:swap;
+    src:url('fonts/audiowide.woff2') format('woff2');
+  }
+  :root{
+    --void:#120829; --void-2:#2A0F4A; --grid:#7B2FBE; --pink:#FF2E97;
+    --orange:#FF9E1F; --cyan:#2DE2FF; --ink:#F4EDFF; --ink-dim:#B9A6D9;
+    --lime:#A6FF3F; --gold:#FFE23F;
+    --display:'Righteous', 'Arial Black', sans-serif;
+    --script:'Mr Dafoe', cursive;
+    --hud:'Audiowide', 'Segoe UI', Arial, sans-serif;
+    --pixel:'Audiowide', 'Segoe UI', Arial, sans-serif;
+  }
+  [hidden]{display:none !important}
+  html,body{height:100%}
+  body{
+    margin:0; background:var(--void); color:var(--ink);
+    font-family:var(--hud); overflow:hidden;
+    -webkit-user-select:none; user-select:none; touch-action:none;
+    overscroll-behavior:none;
+  }
+  #stage{position:fixed; inset:0; display:block; touch-action:none}
+  /* CRT overlay */
+  #crt{position:fixed; inset:0; pointer-events:none; z-index:5;
+    background:
+      repeating-linear-gradient(0deg, rgba(0,0,0,.14) 0 1px, transparent 1px 3px),
+      radial-gradient(ellipse at center, transparent 55%, rgba(6,2,16,.55) 100%);
+  }
+  /* ---------- HUD ---------- */
+  #hud{
+    position:fixed; top:0; left:0; right:0; z-index:6; display:flex;
+    justify-content:space-between; align-items:flex-start;
+    padding:calc(10px + env(safe-area-inset-top)) 14px 0; pointer-events:none;
+  }
+  .hud-block{display:flex; flex-direction:column; gap:4px}
+  .hud-label{font-family:var(--pixel); font-size:9px; letter-spacing:.22em; text-transform:uppercase; color:var(--ink-dim)}
+  .hud-value{font-family:var(--pixel); font-size:19px; line-height:1.2;
+    color:var(--cyan); text-shadow:0 0 10px rgba(45,226,255,.8)}
+  #hud-right{align-items:flex-end}
+  #hud-right .hud-value{color:var(--orange); text-shadow:0 0 10px rgba(255,158,31,.8); text-align:right}
+  #hud-mid{align-items:center}
+  #hud-mid .hud-value{color:var(--lime); text-shadow:0 0 10px rgba(166,255,63,.8); text-align:center}
+  #hud-mid .hud-value.done{color:var(--gold); text-shadow:0 0 12px rgba(255,226,63,.9)}
+  #pause{
+    width:40px; height:40px; border-radius:10px; border:1px solid var(--grid);
+    background:rgba(18,8,41,.75); color:var(--cyan); font-size:14px; line-height:1;
+    letter-spacing:2px; display:flex; align-items:center; justify-content:center;
+    cursor:pointer; pointer-events:auto; margin-top:-4px;
+    text-shadow:0 0 8px rgba(45,226,255,.9);
+  }
+  #pause:focus-visible{outline:2px solid var(--orange); outline-offset:2px}
+  /* ---------- overlay screens ---------- */
+  .screen{
+    position:fixed; inset:0; z-index:7; display:flex; flex-direction:column; align-items:center;
+    justify-content:safe center; gap:16px; text-align:center; padding:24px; overflow-y:auto;
+    background:rgba(10,4,24,.72); backdrop-filter:blur(3px);
+    opacity:0; transform:translateY(16px) scale(.985); pointer-events:none;
+    transition:opacity .35s ease, transform .35s ease;
+  }
+  .screen.on{opacity:1; transform:none; pointer-events:auto}
+  @media (prefers-reduced-motion: reduce){ .screen{transition:none; transform:none} }
+  .title{
+    font-family:var(--display); font-weight:400; font-size:clamp(38px,12vw,76px);
+    letter-spacing:.06em; text-transform:uppercase;
+    line-height:1.02; margin:0; color:var(--pink); text-wrap:balance;
+    text-shadow:0 0 8px rgba(255,46,151,.9), 0 0 32px rgba(255,46,151,.55), 0 0 80px rgba(255,46,151,.35);
+  }
+  .script{
+    font-family:var(--script); font-weight:400; text-transform:none; letter-spacing:0;
+    font-size:1.3em; line-height:.9; display:inline-block; transform:rotate(-5deg);
+  }
+  .title .alt{color:var(--cyan);
+    text-shadow:0 0 8px rgba(45,226,255,.9), 0 0 32px rgba(45,226,255,.55), 0 0 80px rgba(45,226,255,.35)}
+  .title .amber{color:var(--orange);
+    text-shadow:0 0 8px rgba(255,158,31,.9), 0 0 32px rgba(255,158,31,.55)}
+  .tag{color:var(--ink-dim); font-size:14px; max-width:36ch; line-height:1.55; margin:0; font-weight:500}
+  .tag b{color:var(--ink)}
+  .btn{
+    font-family:var(--pixel); font-weight:400; font-size:16px; letter-spacing:.08em;
+    color:var(--void); background:linear-gradient(180deg,#7CEBFF,var(--cyan));
+    border:0; border-radius:4px; padding:16px 44px; cursor:pointer;
+    box-shadow:0 0 18px rgba(45,226,255,.55), 0 0 50px rgba(45,226,255,.25);
+    transition:transform .08s;
+  }
+  .btn:active{transform:scale(.96)}
+  .btn:focus-visible{outline:3px solid var(--orange); outline-offset:3px}
+  .btn.pink{background:linear-gradient(180deg,#FF7CBE,var(--pink)); color:#fff;
+    box-shadow:0 0 18px rgba(255,46,151,.55), 0 0 50px rgba(255,46,151,.25)}
+  .btn.lime{background:linear-gradient(180deg,#D2FF8F,var(--lime)); color:#0E2000;
+    box-shadow:0 0 18px rgba(166,255,63,.55), 0 0 50px rgba(166,255,63,.25)}
+  .btn.ghost{background:transparent; color:var(--cyan); border:1.5px solid var(--cyan);
+    box-shadow:0 0 12px rgba(45,226,255,.25); text-shadow:0 0 8px rgba(45,226,255,.7); font-size:13px; padding:12px 30px}
+  .btn:disabled{opacity:.4; cursor:default}
+  .btn-col{display:flex; flex-direction:column; gap:12px; align-items:center}
+  .btn-row{display:flex; gap:10px}
+  .btn-row .btn{padding:12px 18px; font-size:11px}
+  .link-row{display:flex; gap:20px; flex-wrap:wrap; justify-content:center}
+  .legend{display:flex; flex-wrap:wrap; gap:8px; justify-content:center; max-width:340px}
+  .lg{font-family:var(--pixel); font-size:9px; padding:7px 10px; border:1px solid; border-radius:5px;
+    letter-spacing:.06em; text-shadow:0 0 8px currentColor}
+  .eyebrow{font-size:11px; font-weight:700; letter-spacing:.42em; text-transform:uppercase;
+    color:var(--pink); text-shadow:0 0 10px rgba(255,46,151,.8); margin:0 0 -4px}
+  .linkbtn{background:none; border:none; color:var(--ink-dim); font-family:var(--hud); font-weight:500;
+    font-size:11px; letter-spacing:.12em; text-transform:uppercase; text-decoration:underline; cursor:pointer; padding:6px}
+  .linkbtn:focus-visible{outline:2px solid var(--orange); outline-offset:2px}
+  .stat-row{display:flex; gap:30px; justify-content:center; flex-wrap:wrap}
+  .stat{display:flex; flex-direction:column; gap:3px}
+  .stat .hud-value{font-size:26px}
+  .free{font-family:var(--pixel); font-size:10px; letter-spacing:.24em; text-transform:uppercase; color:var(--orange);
+    text-shadow:0 0 8px rgba(255,158,31,.7)}
+  .donate{font-family:var(--pixel); font-size:9px; letter-spacing:.1em; color:var(--gold); text-decoration:none;
+    border:1px solid rgba(255,226,63,.45); border-radius:6px; padding:9px 14px; margin-top:2px;
+    text-shadow:0 0 8px rgba(255,226,63,.6); background:rgba(255,226,63,.05)}
+  .donate:focus-visible{outline:2px solid var(--orange); outline-offset:2px}
+  .donate.blocked{-webkit-user-select:text; user-select:text; color:var(--ink); border-color:var(--ink-dim)}
+  .blink{animation:blink 1.2s steps(2,start) infinite}
+  @keyframes blink{50%{opacity:0}}
+  @media (prefers-reduced-motion: reduce){ .blink{animation:none} }
+  .logo{width:min(42vw,168px); display:block; mix-blend-mode:screen; margin-bottom:-10px}
+  .hud-coins{font-family:var(--pixel); font-size:12px; color:var(--gold); text-shadow:0 0 8px rgba(255,226,63,.8)}
+  .pixel-eyebrow{font-family:var(--pixel); font-size:13px; color:var(--pink);
+    text-shadow:0 0 10px rgba(255,46,151,.8); margin:0; letter-spacing:.08em}
+
+  /* ---------- in-play tool bar ---------- */
+  #tools{position:fixed; bottom:calc(12px + env(safe-area-inset-bottom)); left:8px; right:8px;
+    display:flex; gap:7px; z-index:6; justify-content:center; pointer-events:none}
+  .tool{position:relative; min-width:52px; height:52px; border-radius:12px; border:1.5px solid var(--grid);
+    background:rgba(18,8,41,.85); font-family:var(--pixel); font-size:10px; letter-spacing:.04em;
+    color:var(--cyan); cursor:pointer; pointer-events:auto; touch-action:manipulation;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px;
+    text-shadow:0 0 8px currentColor; padding:0 9px}
+  .tool.off{color:var(--ink-dim); border-color:rgba(123,47,190,.5); text-shadow:none}
+  .tool .ico{font-size:17px; line-height:1}
+  .tool:disabled{opacity:.35; cursor:default}
+  .tool:focus-visible{outline:2px solid var(--orange); outline-offset:2px}
+  .tool.gold{border-color:rgba(255,226,63,.6); color:var(--gold)}
+  .tool-n{position:absolute; top:-7px; right:-7px; background:var(--gold); color:var(--void);
+    font-size:9px; border-radius:8px; padding:3px 5px; font-family:var(--pixel); text-shadow:none}
+
+  /* ---------- mode tab strip ---------- */
+  .mode-strip{display:flex; gap:9px; justify-content:center; flex-wrap:wrap}
+  .mode-tab{font-family:var(--pixel); font-size:12px; letter-spacing:.1em; padding:11px 18px; border-radius:7px;
+    border:1.5px solid var(--grid); background:rgba(18,8,41,.85); color:var(--ink-dim); cursor:pointer}
+  .mode-tab .sub{display:block; font-size:8px; letter-spacing:.06em; margin-top:4px; opacity:.85}
+  .mode-tab.sel{border-color:var(--pink); color:var(--pink); text-shadow:0 0 10px rgba(255,46,151,.8);
+    box-shadow:0 0 16px rgba(255,46,151,.3)}
+  .mode-tab:focus-visible{outline:2px solid var(--orange); outline-offset:2px}
+
+  /* ---------- level picker ---------- */
+  #zone-strip{display:flex; gap:7px; flex-wrap:wrap; justify-content:center; max-width:min(92vw,420px)}
+  .zone-tab{font-family:var(--pixel); font-size:9px; letter-spacing:.08em; padding:8px 11px; border-radius:5px;
+    border:1px solid var(--grid); background:rgba(18,8,41,.8); color:var(--ink-dim); cursor:pointer}
+  .zone-tab.sel{border-color:var(--cyan); color:var(--cyan); text-shadow:0 0 8px rgba(45,226,255,.8);
+    box-shadow:0 0 12px rgba(45,226,255,.3)}
+  .zone-tab.locked{opacity:.4}
+  .zone-tab:focus-visible{outline:2px solid var(--orange); outline-offset:2px}
+  #zone-name{font-family:var(--pixel); font-size:12px; letter-spacing:.14em; color:var(--pink);
+    text-shadow:0 0 10px rgba(255,46,151,.7); margin:0}
+  #lvl-grid{display:grid; grid-template-columns:repeat(4, 1fr); gap:9px; width:min(92vw,400px)}
+  .lvl{position:relative; aspect-ratio:1; border-radius:9px; border:1.5px solid var(--grid);
+    background:rgba(18,8,41,.85); color:var(--ink); font-family:var(--pixel); font-size:18px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; cursor:pointer}
+  .lvl .stars{font-size:9px; letter-spacing:1px; color:var(--gold); text-shadow:0 0 8px rgba(255,226,63,.8); height:11px}
+  .lvl.done{border-color:var(--lime); box-shadow:0 0 12px rgba(166,255,63,.25)}
+  .lvl.next{border-color:var(--cyan); box-shadow:0 0 14px rgba(45,226,255,.4)}
+  .lvl.locked{opacity:.3; cursor:default; color:var(--ink-dim); border-style:dashed}
+  .lvl.locked .stars{color:var(--ink-dim); text-shadow:none; letter-spacing:0}
+  .lvl:focus-visible{outline:2px solid var(--orange); outline-offset:2px}
+
+  /* ---------- cattery ---------- */
+  #shop-scroll{display:flex; flex-direction:column; align-items:center; gap:10px; overflow-y:auto; max-height:58vh}
+  #cat-list{display:flex; flex-direction:column; gap:10px; width:min(90vw,390px)}
+  .cat-card{display:flex; align-items:center; gap:12px; padding:10px 12px; text-align:left;
+    border:1.5px solid var(--grid); border-radius:6px; background:rgba(18,8,41,.85)}
+  .cat-card.sel{border-color:var(--cyan); box-shadow:0 0 14px rgba(45,226,255,.35)}
+  .cat-card canvas{width:52px; height:52px; image-rendering:pixelated; flex:none}
+  .cat-info{flex:1; min-width:0}
+  .cat-name{font-family:var(--pixel); font-size:14px}
+  .cat-desc{font-family:var(--pixel); font-size:9px; color:var(--ink-dim); margin-top:5px; line-height:1.6}
+  .cat-btn{font-family:var(--pixel); font-size:8px; padding:9px 10px; border-radius:4px; flex:none;
+    border:1px solid var(--cyan); background:transparent; color:var(--cyan); cursor:pointer;
+    text-shadow:0 0 6px rgba(45,226,255,.7)}
+  .cat-btn.buy{border-color:var(--gold); color:var(--gold); text-shadow:0 0 6px rgba(255,226,63,.7)}
+  .cat-btn:disabled{opacity:.4; cursor:default}
+  .cat-btn:focus-visible{outline:2px solid var(--orange); outline-offset:2px}
+  .shop-sec{font-family:var(--pixel); font-size:11px; letter-spacing:.12em; color:var(--ink-dim); margin:4px 0 0}
+  #hint-shop{display:flex; gap:8px; flex-wrap:wrap; justify-content:center; width:min(90vw,390px)}
+  .sup-btn{display:flex; flex-direction:column; align-items:center; gap:5px; padding:9px 8px; min-width:70px;
+    border:1px solid var(--gold); border-radius:6px; background:rgba(18,8,41,.85); cursor:pointer; font-family:var(--pixel)}
+  .sup-ico{font-size:16px; text-shadow:0 0 8px currentColor; color:var(--gold)}
+  .sup-name{font-size:9px; color:var(--ink)}
+  .sup-price{font-size:9px; color:var(--gold)}
+  .sup-btn:disabled{opacity:.4; cursor:default}
+  .sup-btn:focus-visible{outline:2px solid var(--orange); outline-offset:2px}
+
+  /* ---------- win screen ---------- */
+  #win-stars{font-family:var(--pixel); font-size:34px; letter-spacing:8px; color:var(--gold);
+    text-shadow:0 0 14px rgba(255,226,63,.9), 0 0 40px rgba(255,226,63,.5); margin:0}
+  #win-stars .dim{color:rgba(185,166,217,.3); text-shadow:none}
+  .howto{display:flex; gap:18px; color:var(--ink-dim); font-size:12px; line-height:1.5; font-weight:500}
+  .howto div{max-width:15ch}
+  .howto b{color:var(--orange); display:block; font-size:10px; letter-spacing:.22em; text-transform:uppercase; margin-bottom:3px}
+  #rule-demo{width:min(78vw,270px); height:auto; image-rendering:auto}
+  #doku-demo{width:min(72vw,250px); height:auto; image-rendering:auto}
+  #help-doku, #help-sweep{display:flex; flex-direction:column; align-items:center; gap:16px}
+  @media (prefers-reduced-motion: reduce){ .btn{transition:none} }
+</style>
+</head>
+<body>
+
+<canvas id="stage"></canvas>
+<div id="crt"></div>
+
+<div id="hud" hidden>
+  <div class="hud-block"><span class="hud-label" id="hud-l1">Level</span><span class="hud-value" id="hud-level">1</span></div>
+  <div class="hud-block" id="hud-mid"><span class="hud-label">Cats left</span><span class="hud-value" id="hud-cats">0</span></div>
+  <div class="hud-block" id="hud-right"><span class="hud-label">Time</span><span class="hud-value" id="hud-time">0:00</span><span class="hud-coins">&#9670; <span id="hud-coins">0</span></span></div>
+  <button id="pause" aria-label="Pause" hidden>&#10074;&#10074;</button>
+</div>
+
+<div id="tools" hidden>
+  <button class="tool" id="tool-undo"><span class="ico">&#8630;</span>UNDO</button>
+  <button class="tool gold" id="tool-hint"><span class="ico">&#9788;</span>HINT<span class="tool-n" id="hint-n">3</span></button>
+  <button class="tool" id="tool-autox" hidden><span class="ico">&#10005;</span>AUTO X</button>
+  <button class="tool" id="tool-restart"><span class="ico">&#8635;</span>RESET</button>
+</div>
+
+<div class="screen" id="scr-pause" hidden>
+  <h1 class="title" style="font-size:clamp(32px,10vw,56px)"><span class="alt script">Catnap</span></h1>
+  <p class="tag">The cats are not going anywhere. Take your time.</p>
+  <div class="btn-col">
+    <button class="btn" id="btn-resume">RESUME</button>
+    <button class="btn ghost" id="btn-sound">SOUND: ON</button>
+    <button class="btn ghost" id="btn-music">MUSIC: ON</button>
+    <button class="btn ghost" id="btn-gfx">GRAPHICS: AUTO</button>
+    <button class="btn ghost" id="btn-quit">LEVEL SELECT</button>
+  </div>
+</div>
+
+<div class="screen on" id="scr-start" style="gap:12px; background:rgba(10,4,24,.58)">
+  <img class="logo" src="img/logo.png" alt="Cycle Start Studios">
+  <h1 class="title">CAT<br><span class="alt script">doku</span></h1>
+  <div class="btn-col">
+    <button class="btn" id="btn-continue">PLAY &middot; LEVEL 1</button>
+    <div class="btn-row">
+      <button class="btn ghost" id="btn-levels">LEVELS</button>
+      <button class="btn ghost" id="btn-daily">DAILY CAT</button>
+    </div>
+    <div class="btn-row">
+      <button class="btn ghost" id="btn-cattery">CATTERY</button>
+      <button class="btn ghost" id="btn-help">HOW TO PLAY</button>
+    </div>
+  </div>
+  <div class="stat-row">
+    <div class="stat"><span class="hud-label">Solved</span><span class="hud-value" id="menu-solved">0</span></div>
+    <div class="stat"><span class="hud-label">Stars</span><span class="hud-value" id="menu-stars" style="color:var(--gold); text-shadow:0 0 10px rgba(255,226,63,.8)">0</span></div>
+    <div class="stat"><span class="hud-label">Coins</span><span class="hud-value" id="menu-coins" style="color:var(--gold); text-shadow:0 0 10px rgba(255,226,63,.8)">0</span></div>
+  </div>
+  <div class="link-row">
+    <button class="linkbtn" id="btn-sound-menu">Sound: on</button>
+    <button class="linkbtn" id="btn-music-menu">Music: on</button>
+    <button class="linkbtn" id="btn-reset" hidden>Reset progress</button>
+  </div>
+  <p class="free blink">Free play &middot; no ads &middot; ever</p>
+  <!-- Set this to your own Buy Me a Coffee (or Ko-fi) page -->
+  <a class="donate" href="https://buymeacoffee.com/cyclestartstudios" target="_blank" rel="noopener">&#9749; Enjoying it? Buy me a coffee</a>
+</div>
+
+<div class="screen" id="scr-help" hidden>
+  <h1 class="title" style="font-size:clamp(24px,7.5vw,40px)">HOW TO <span class="alt script">Play</span></h1>
+  <div class="mode-strip" id="help-mode-strip"></div>
+
+  <div id="help-doku">
+    <p class="tag">The grid is cut into <b>coloured regions</b>. Put <b>exactly one cat</b> in every row, every column and every region. No numbers, no counting &mdash; that is the entire rule.</p>
+    <canvas id="doku-demo" width="560" height="560" aria-label="A solved five by five grid: one cat per row, column and region"></canvas>
+    <p class="tag">Above is a solved 5&times;5. Every row has one cat, every column has one, every region has one. The <b>pips</b> along the top and the left edge tell you which columns and rows are already accounted for.</p>
+    <p class="tag"><b>Tap</b> a square to put a cat on it, and tap again to take it off. <b>Hold</b> a square to block it &mdash; a tap clears that too. Blocking what you have ruled out is the whole game on the bigger grids.</p>
+    <div class="legend">
+      <span class="lg" style="color:#A6FF3F;border-color:#A6FF3F">ONE CAT &middot; GOOD</span>
+      <span class="lg" style="color:#FF2E97;border-color:#FF2E97">TWO CATS &middot; BROKEN</span>
+    </div>
+    <p class="tag">The move that cracks these: if a <b>region sits entirely inside one row</b>, that row's cat has to be in the region &mdash; so every other square in the row is out. It works the other way too, and once you see it you will see it everywhere.</p>
+    <p class="tag">Stuck on the very first move? On an untouched grid the <b>hint button is free</b> and fills nothing in &mdash; it dims everything the opening argument does not touch, outlines the row, column or region it rests on, and names the reason. You still make the move. Every hint after that reveals a square, and those cost.</p>
+    <p class="tag"><b>AUTO X</b> pencils a faint cross into every square your placed cats have already ruled out, so you can see what is left before committing. It is bookkeeping you could do by hand, and the button turns it off if you would rather.</p>
+  </div>
+
+  <div id="help-sweep" hidden>
+    <p class="tag">A <b>numbered tile</b> counts the cats hiding in the <b>eight tiles touching it</b>, diagonals included. It never hides a cat itself.</p>
+    <canvas id="rule-demo" width="540" height="300" aria-label="A 3 tile with three cats around it"></canvas>
+    <p class="tag"><b>Tap</b> a tile to put a cat on it, and tap again to take it off. <b>Hold</b> a tile to block it &mdash; a tap clears that too. Blocking what you have ruled out is how the big grids fall.</p>
+    <div class="legend">
+      <span class="lg" style="color:#2DE2FF;border-color:#2DE2FF">CLUE UNSOLVED</span>
+      <span class="lg" style="color:#A6FF3F;border-color:#A6FF3F">CLUE SATISFIED</span>
+      <span class="lg" style="color:#FF2E97;border-color:#FF2E97">CLUE BROKEN</span>
+    </div>
+    <p class="tag">A clue goes <b>lime</b> when its count is right, <b>pink</b> when you have broken it. Every clue lime means the puzzle is solved.</p>
+  </div>
+
+  <p class="tag">Both games are built to fall to <b>pure logic</b> &mdash; you never have to guess in either. A <b>hint</b> finds a square you can prove, or catches a cat you have put in the wrong place.</p>
+  <button class="btn ghost" id="btn-help-back">BACK</button>
+</div>
+
+<div class="screen" id="scr-levels" hidden style="gap:12px">
+  <h1 class="title" style="font-size:clamp(24px,7.5vw,40px)"><span class="amber">LEVELS</span></h1>
+  <div class="mode-strip" id="mode-strip"></div>
+  <p class="tag" id="mode-blurb" style="font-size:12px; margin:-6px 0 0"></p>
+  <div id="zone-strip"></div>
+  <p id="zone-name">THE ALLEY</p>
+  <p class="tag" id="zone-desc" style="font-size:12px; margin-top:-8px"></p>
+  <div id="lvl-grid"></div>
+  <button class="btn ghost" id="btn-levels-back">BACK</button>
+</div>
+
+<div class="screen" id="scr-win" hidden>
+  <p class="pixel-eyebrow blink" id="win-eyebrow">PUZZLE SOLVED</p>
+  <h1 class="title" style="font-size:clamp(30px,10vw,56px)"><span class="alt script">Purrfect</span></h1>
+  <p id="win-stars">&#9733;&#9733;&#9733;</p>
+  <p class="tag" id="win-flavor">Every cat accounted for.</p>
+  <div class="stat-row">
+    <div class="stat"><span class="hud-label">Time</span><span class="hud-value" id="win-time">0:00</span></div>
+    <div class="stat"><span class="hud-label">Best</span><span class="hud-value" id="win-best">0:00</span></div>
+    <div class="stat"><span class="hud-label">Earned</span><span class="hud-value" id="win-coins" style="color:var(--gold); text-shadow:0 0 10px rgba(255,226,63,.8)">0</span></div>
+  </div>
+  <div class="btn-col">
+    <button class="btn lime" id="btn-next">NEXT PUZZLE</button>
+    <div class="btn-row">
+      <button class="btn ghost" id="btn-replay">REPLAY</button>
+      <button class="btn ghost" id="btn-win-levels">LEVELS</button>
+    </div>
+  </div>
+</div>
+
+<div class="screen" id="scr-shop" hidden>
+  <h1 class="title" style="font-size:clamp(26px,8vw,44px)"><span class="amber">CATTERY</span></h1>
+  <p class="free" id="shop-coins">&#9670; 0</p>
+  <div id="shop-scroll">
+    <p class="shop-sec">CATS &mdash; PICK WHO HIDES IN YOUR GRID</p>
+    <div id="cat-list"></div>
+    <p class="shop-sec">HINTS</p>
+    <div id="hint-shop"></div>
+  </div>
+  <button class="btn ghost" id="btn-shop-back">BACK</button>
+</div>
+
+<script>
+'use strict';
+/* ============================================================
+   CATDOKU — a synthwave logic puzzle.
+   Numbered tiles count the cats in the eight tiles around them.
+   Every puzzle is generated to be solvable by pure deduction.
+   No ads, no timers, no currencies you have to buy. Just the game.
+   ============================================================ */
+const cv = document.getElementById('stage');
+const cx = cv.getContext('2d');
+
+const $ = function(id){ return document.getElementById(id); };
+const hud = $('hud'), hudLevel = $('hud-level'), hudCats = $('hud-cats'),
+      hudTime = $('hud-time'), hudCoins = $('hud-coins');
+const scrStart = $('scr-start'), scrHelp = $('scr-help'), scrLevels = $('scr-levels'),
+      scrWin = $('scr-win'), scrShop = $('scr-shop'), scrPause = $('scr-pause');
+const toolBar = $('tools'), pauseBtn = $('pause');
+
+// fade screens in and out instead of snapping
+function showScreen(el){
+  clearTimeout(el._ht);
+  el.hidden = false;
+  void el.offsetWidth;               // reflow so the transition actually runs
+  el.classList.add('on');
+}
+function hideScreen(el){
+  clearTimeout(el._ht);
+  el.classList.remove('on');
+  el._ht = setTimeout(function(){ el.hidden = true; }, 380);
+}
+
+const clamp = (v,a,b) => v<a?a:(v>b?b:v);
+const lerp = (a,b,t) => a+(b-a)*t;
+const rand = (a,b) => a+Math.random()*(b-a);
+const TAU = Math.PI*2;
+
+/* ---------- palette ---------- */
+const C = {
+  void:'#120829', void2:'#2A0F4A', grid:'#7B2FBE', gridDim:'#41197A',
+  pink:'#FF2E97', orange:'#FF9E1F', cyan:'#2DE2FF', ink:'#F4EDFF', inkDim:'#B9A6D9',
+  lime:'#A6FF3F', gold:'#FFE23F',
+  sunTop:'#FF5FD2', sunBot:'#FF9E1F',
+};
+
+/* ---------- seeded RNG (mulberry32) ----------
+   Level N is always the same puzzle on every device, so progress, par times
+   and the daily puzzle all mean the same thing for everyone. */
+function mulberry32(seed){
+  let a = seed >>> 0;
+  return function(){
+    a = (a + 0x6D2B79F5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/* ---------- persistence ---------- */
+function readJSON(key, fallback){
+  try{ const v = JSON.parse(localStorage.getItem(key)); return (v && typeof v === 'object') ? v : fallback; }
+  catch(e){ return fallback; }
+}
+function writeJSON(key, val){ try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){} }
+function readInt(key, fallback){
+  try{ const n = parseInt(localStorage.getItem(key),10); return isFinite(n) ? n : fallback; }catch(e){ return fallback; }
+}
+
+// Each mode keeps its own book: { lv: {stars, time} } by level number, and
+// daily results by date string. The wallet, hints and cats are shared.
+let scores = { doku: readJSON('catdoku-sc-doku', {}), sweep: readJSON('catdoku-sc-sweep', {}) };
+let dailies = { doku: readJSON('catdoku-dy-doku', {}), sweep: readJSON('catdoku-dy-sweep', {}) };
+function saveScores(m){ writeJSON('catdoku-sc-'+m, scores[m]); }
+function saveDailies(m){ writeJSON('catdoku-dy-'+m, dailies[m]); }
+// the mode the player is in; the menu, level select and daily all follow it
+let mode = 'doku';
+try{ if(localStorage.getItem('catdoku-mode') === 'sweep') mode = 'sweep'; }catch(e){}
+function setMode(m){
+  if(!MODES[m] || mode === m) return;
+  mode = m;
+  try{ localStorage.setItem('catdoku-mode', m); }catch(e){}
+}
+
+let wallet = Math.max(0, readInt('catdoku-coins', 0));
+function saveCoins(){ try{ localStorage.setItem('catdoku-coins', String(wallet)); }catch(e){} }
+let hints = Math.max(0, readInt('catdoku-hints', 3));
+function saveHints(){ try{ localStorage.setItem('catdoku-hints', String(hints)); }catch(e){} }
+
+/* ---------- the cattery: cosmetic cats ---------- */
+const CAT_ORDER = ['tabby','noir','soda','ghost','calico','glitch','golden'];
+const CATS = {
+  tabby:  { name:'NEON TABBY', price:0,    fur:'#B84FFF', fur2:'#7B2FBE', eye:'#2DE2FF', desc:'THE HOUSE CAT. ELECTRIC PURPLE.' },
+  noir:   { name:'NOIR',       price:250,  fur:'#3A2258', fur2:'#241338', eye:'#FF2E97', desc:'BLACK CAT, PINK STARE. BAD LUCK FOR CLUES.' },
+  soda:   { name:'CREAM SODA', price:500,  fur:'#FF9E1F', fur2:'#C46A00', eye:'#2DE2FF', desc:'ORANGE, ROUND, ENTIRELY UNBOTHERED.' },
+  ghost:  { name:'GHOST',      price:900,  fur:'#DCEBFF', fur2:'#8FA8D6', eye:'#2DE2FF', desc:'HALF THERE. STILL SHEDS.' },
+  calico: { name:'CALICO',     price:1400, fur:'#FFD8A8', fur2:'#FF6BA8', eye:'#A6FF3F', desc:'THREE COLOURS, ONE OPINION.' },
+  glitch: { name:'GLITCH',     price:2200, fur:'#2DE2FF', fur2:'#FF2E97', eye:'#FFE23F', desc:'FUR CYCLES THROUGH THE PALETTE.' },
+  golden: { name:'GOLDEN',     price:3500, fur:'#FFE23F', fur2:'#C79A00', eye:'#FF2E97', desc:'SOLID GOLD. PURRS IN CURRENCY.' },
+};
+function loadCatData(){
+  const d = readJSON('catdoku-cats', null);
+  if(d && Array.isArray(d.owned) && CATS[d.sel] && d.owned.indexOf('tabby') >= 0){
+    return { owned: d.owned.filter(function(k){ return !!CATS[k]; }), sel: d.sel };
+  }
+  return { owned:['tabby'], sel:'tabby' };
+}
+let catData = loadCatData();
+function saveCatData(){ writeJSON('catdoku-cats', catData); }
+function curCat(){ return CATS[catData.sel] || CATS.tabby; }
+
+/* ---------- audio (tiny synth, no assets) ---------- */
+let AC = null, sfxOff = false, musicOff = false;
+/* Effects and music are separate switches — plenty of people want the chiptune
+   off and the taps on, or the other way round. A single stored mute from an
+   earlier build silences both, so nobody's quiet gets undone by updating. */
+try{
+  const legacy = localStorage.getItem('catdoku-muted') === '1';
+  const s = localStorage.getItem('catdoku-sfx'), m = localStorage.getItem('catdoku-music');
+  sfxOff   = s === null ? legacy : s === '0';
+  musicOff = m === null ? legacy : m === '0';
+}catch(e){}
+function audio(){
+  if(!AC){ try{ AC = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} }
+  if(AC && AC.state === 'suspended') AC.resume();
+  return AC;
+}
+function tone(freq, dur, type, vol, slide){
+  if(sfxOff) return; const ac = audio(); if(!ac) return;
+  const o = ac.createOscillator(), g = ac.createGain(), t = ac.currentTime;
+  o.type = type||'square'; o.frequency.setValueAtTime(freq, t);
+  if(slide) o.frequency.exponentialRampToValueAtTime(Math.max(30,slide), t+dur);
+  g.gain.setValueAtTime(vol||.05, t); g.gain.exponentialRampToValueAtTime(.0001, t+dur);
+  o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t+dur+.02);
+}
+// a meow is two slides in opposite directions — up into the vowel, down out of it
+function meow(base, len, vol){
+  if(sfxOff) return; const ac = audio(); if(!ac) return;
+  const t = ac.currentTime, o = ac.createOscillator(), g = ac.createGain(), f = ac.createBiquadFilter();
+  o.type = 'sawtooth';
+  o.frequency.setValueAtTime(base*.8, t);
+  o.frequency.exponentialRampToValueAtTime(base*1.25, t+len*.28);
+  o.frequency.exponentialRampToValueAtTime(base*.72, t+len);
+  f.type = 'bandpass'; f.frequency.setValueAtTime(base*2.4, t);
+  f.frequency.exponentialRampToValueAtTime(base*1.4, t+len); f.Q.value = 3.2;
+  g.gain.setValueAtTime(.0001, t);
+  g.gain.exponentialRampToValueAtTime(vol||.05, t+len*.14);
+  g.gain.exponentialRampToValueAtTime(.0001, t+len);
+  o.connect(f); f.connect(g); g.connect(ac.destination); o.start(t); o.stop(t+len+.03);
+}
+const sfx = {
+  place(){ tone(660,.05,'square',.03,880); },
+  block(){ tone(300,.05,'square',.022,200); },
+  clear(){ tone(420,.045,'triangle',.02,340); },
+  clue(){ tone(1180,.06,'triangle',.024,1560); },          // a clue just went lime
+  bad(){ tone(190,.16,'sawtooth',.045,120); },
+  hint(){ [880,1180,1480].forEach(function(f,i){ setTimeout(function(){ tone(f,.08,'triangle',.04); }, i*60); }); },
+  wrong(){ tone(240,.2,'sawtooth',.055,110); },
+  win(){ meow(540,.34,.06); setTimeout(function(){ [523,659,784,1046].forEach(function(f,i){ setTimeout(function(){ tone(f,.16,'triangle',.055); }, i*105); }); }, 180); },
+  buy(){ tone(987,.05,'square',.04); setTimeout(function(){ tone(1318,.12,'square',.04); },45); },
+  tap(){ tone(760,.035,'square',.018); },
+};
+
+/* ---------- chiptune engine: same 8-bar form as Neon Horde, slowed to a
+   thinking tempo. A puzzle you sit with for ten minutes cannot be scored like
+   a shooter, so the moods here are sparse, warm and low-contrast. ---------- */
+let musicTimer = null, musicBar = 0, mood = 'lounge', musicOut = null;
+const NF = { E2:82.41, G2:98, A2:110, B2:123.47, C3:130.81, D3:146.83, E3:164.81, FS3:185, G3:196, A3:220, B3:246.94,
+             C4:261.63, D4:293.66, DS4:311.13, E4:329.63, FS4:369.99, G4:392, A4:440, B4:493.88, C5:523.25, D5:587.33 };
+const CHORDS = {
+  Em7:{ bass:NF.E2, arp:[NF.E3,NF.G3,NF.B3,NF.D4] },
+  Cmaj7:{ bass:NF.C3, arp:[NF.C4,NF.E4,NF.G4,NF.B4] },
+  Amin9:{ bass:NF.A2, arp:[NF.A3,NF.C4,NF.E4,NF.B4] },
+  Bm:{ bass:NF.B2, arp:[NF.B3,NF.D4,NF.FS4,NF.A4] },
+  G6: { bass:NF.G2, arp:[NF.G3,NF.B3,NF.D4,NF.E4] },
+  Dsus:{ bass:NF.D3, arp:[NF.D4,NF.G4,NF.A4,NF.D5] },
+};
+const PROGS = {
+  night: ['Em7','Cmaj7','G6','Dsus','Em7','Cmaj7','Amin9','Bm'],
+  focus: ['Amin9','G6','Cmaj7','Em7','Amin9','G6','Dsus','Bm'],
+};
+const MOODS = {
+  // menus: airy, almost ambient
+  lounge:  { bpm:82,  prog:'night', kick:[0],        hat:[8],           bass:[0,8],        arpEvery:4, arpWave:'triangle', arpVol:.024, bassVol:.055, pad:true, lead:false, swing:.18 },
+  // solving: a soft pulse to keep time by, nothing that demands attention
+  focus:   { bpm:94,  prog:'focus', kick:[0,8],      hat:[4,12],        bass:[0,6,8,14],   arpEvery:2, arpWave:'triangle', arpVol:.018, bassVol:.065, pad:true, lead:false, swing:.14 },
+  // the big grids in the last zone earn a little more motion
+  prowl:   { bpm:108, prog:'night', kick:[0,4,8,12], hat:[2,6,10,14],   bass:[0,3,8,11],   arpEvery:2, arpWave:'square',   arpVol:.014, bassVol:.07,  pad:true, lead:true,  swing:0 },
+};
+function musicDest(){
+  // a gentle lowpass takes the chip edge off — warmer, less fatiguing
+  if(!musicOut){
+    musicOut = AC.createBiquadFilter();
+    musicOut.type = 'lowpass'; musicOut.frequency.value = 2100; musicOut.Q.value = .5;
+    musicOut.connect(AC.destination);
+  }
+  return musicOut;
+}
+function noteAt(freq, t, dur, type, vol, slide){
+  const o = AC.createOscillator(), g = AC.createGain();
+  o.type = type; o.frequency.setValueAtTime(freq, t);
+  if(slide) o.frequency.exponentialRampToValueAtTime(Math.max(30,slide), t+dur);
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.0001, t+dur);
+  o.connect(g); g.connect(musicDest()); o.start(t); o.stop(t+dur+.02);
+}
+const LEAD_LINES = [ [3,2,1,2], [2,1,0,2], [3,1,2,0], [2,3,1,0] ];
+function scheduleBar(t0){
+  if(musicOff || !AC){ musicTimer = null; return; }
+  const M = MOODS[mood] || MOODS.lounge;
+  const step = 60/M.bpm/4;
+  const prog = PROGS[M.prog];
+  const b = musicBar % prog.length;
+  const ch = CHORDS[prog[b]];
+  musicBar++;
+  // sustained pad: root octave + fifth, whole bar
+  if(M.pad){
+    noteAt(ch.bass*2, t0, step*16, 'sine', .028);
+    noteAt(ch.bass*3, t0, step*16, 'sine', .014);
+  }
+  for(let s=0;s<16;s++){
+    let t = t0 + s*step;
+    if(M.swing && s%2 === 1) t += step*M.swing;      // lazy off-beats
+    if(M.kick.indexOf(s) >= 0) noteAt(112,t,.1,'sine',.085,44);
+    if(M.hat.indexOf(s) >= 0)  noteAt(5000,t, s===14?.055:.028, 'square', .0065);
+    if(M.bass.indexOf(s) >= 0) noteAt(ch.bass,t, step*1.9, 'triangle', M.bassVol);
+    if(s % M.arpEvery === 0){
+      const seq = (b%2 === 0) ? [0,1,2,3] : [3,2,1,2];   // arp climbs, then tumbles
+      const k = Math.floor(s/M.arpEvery) % 4;
+      noteAt(ch.arp[seq[k]], t, step*M.arpEvery*.95, M.arpWave, M.arpVol);
+    }
+  }
+  // lead melody in the back half of the 8-bar form
+  if(M.lead && b >= 4){
+    const mel = LEAD_LINES[b%4], steps = [0,5,8,13];
+    for(let i=0;i<4;i++) noteAt(ch.arp[mel[i]]*2, t0+steps[i]*step, step*2.6, 'triangle', .017);
+  }
+  // turnaround sparkle on the last bar
+  if(b === prog.length-1){
+    noteAt(ch.arp[2]*2, t0+14*step, step*2, 'square', .013);
+    noteAt(ch.arp[3]*2, t0+15*step, step*2.4, 'square', .015);
+  }
+  const next = t0 + 16*step;
+  musicTimer = setTimeout(function(){ scheduleBar(next); }, Math.max(60,(next-AC.currentTime-.15)*1000));
+}
+/* A context created before the player has touched anything is suspended, and
+   scheduling a bar against it queues every note at time zero — they all fire at
+   once the moment it resumes. So wait until it is actually running. */
+function startMusic(){
+  if(musicOff || musicTimer) return;
+  const ac = audio();
+  if(!ac) return;
+  if(ac.state === 'running'){ scheduleBar(ac.currentTime+.08); return; }
+  ac.resume().then(function(){
+    if(!musicOff && !musicTimer && ac.state === 'running') scheduleBar(ac.currentTime+.08);
+  }).catch(function(){});
+}
+function stopMusic(){ clearTimeout(musicTimer); musicTimer = null; }
+function setMood(m){ if(mood !== m){ mood = m; } }
+function updateSoundBtns(){
+  $('btn-sound').textContent = 'SOUND: '+(sfxOff?'OFF':'ON');
+  $('btn-music').textContent = 'MUSIC: '+(musicOff?'OFF':'ON');
+  $('btn-sound-menu').textContent = 'Sound: '+(sfxOff?'off':'on');
+  $('btn-music-menu').textContent = 'Music: '+(musicOff?'off':'on');
+}
+function toggleSfx(){
+  sfxOff = !sfxOff;
+  try{ localStorage.setItem('catdoku-sfx', sfxOff?'0':'1'); }catch(e){}
+  updateSoundBtns();
+  if(!sfxOff) tone(880,.05,'triangle',.04);      // a blip, so you know it took
+}
+function toggleMusic(){
+  musicOff = !musicOff;
+  try{ localStorage.setItem('catdoku-music', musicOff?'0':'1'); }catch(e){}
+  updateSoundBtns();
+  if(musicOff) stopMusic(); else startMusic();
+}
+$('btn-sound').addEventListener('click', function(){ audio(); toggleSfx(); });
+$('btn-music').addEventListener('click', function(){ audio(); toggleMusic(); });
+$('btn-sound-menu').addEventListener('click', function(){ audio(); toggleSfx(); });
+$('btn-music-menu').addEventListener('click', function(){ audio(); toggleMusic(); });
+updateSoundBtns();
+
+/* ---------- performance tiers ----------
+   Phones ship 120Hz panels and tablets ship 3K screens; both will happily melt
+   a canvas-2D game. We cap the frame rate, budget total canvas pixels, and drop
+   expensive shadow blur when the device cannot keep up. */
+const TIERS = {
+  high: { maxDPR: 2,   budget: 2600000, glow: true  },
+  low:  { maxDPR: 1.5, budget: 1400000, glow: false },
+};
+let qPref = 'auto';
+try{ qPref = localStorage.getItem('catdoku-gfx') || 'auto'; }catch(e){}
+function pickTier(){
+  if(qPref === 'high' || qPref === 'low') return qPref;
+  // large screens (tablets) start conservative; the adaptive check can still adjust
+  return (window.innerWidth * window.innerHeight > 780000) ? 'low' : 'high';
+}
+let qTier = pickTier();
+let Q = TIERS[qTier];
+function setTier(name){
+  qTier = name; Q = TIERS[name] || TIERS.high;
+  resize();
+}
+function updateGfxBtn(){
+  $('btn-gfx').textContent = 'GRAPHICS: ' +
+    (qPref === 'auto' ? 'AUTO (' + qTier.toUpperCase() + ')' : qPref.toUpperCase());
+}
+$('btn-gfx').addEventListener('click', function(){
+  qPref = qPref === 'auto' ? 'high' : qPref === 'high' ? 'low' : 'auto';
+  try{ localStorage.setItem('catdoku-gfx', qPref); }catch(e){}
+  setTier(pickTier());
+  updateGfxBtn();
+});
+// glow is the expensive part: one blur pass per draw call
+function glow(color, blur){
+  cx.shadowColor = color;
+  cx.shadowBlur = Q.glow ? blur : 0;
+}
+function neon(color, blur, width){
+  cx.strokeStyle = color;
+  cx.shadowColor = color;
+  cx.shadowBlur = Q.glow ? blur : 0;
+  cx.lineWidth = width;
+}
+function noGlow(){ cx.shadowBlur = 0; }
+
+let W = 0, H = 0, DPR = 1, now = 0;
+function resize(){
+  W = window.innerWidth; H = window.innerHeight;
+  const want = Math.min(window.devicePixelRatio||1, Q.maxDPR);
+  // never rasterise more pixels than the budget, however dense the panel
+  let d = want;
+  const area = Math.max(1, W*H);
+  if(area*d*d > Q.budget) d = Math.sqrt(Q.budget/area);
+  DPR = Math.max(0.75, Math.min(want, d));
+  cv.width = Math.round(W*DPR); cv.height = Math.round(H*DPR);
+  cv.style.width = W+'px'; cv.style.height = H+'px';
+  cx.setTransform(DPR,0,0,DPR,0,0);
+  makeStars();
+  layoutBoard();
+}
+window.addEventListener('resize', resize);
+
+/* ---------- backdrop: the same sunset, seen from a fire escape ---------- */
+const HORIZON = 0.30;
+let stars = [];
+function makeStars(){
+  stars = [];
+  const n = Math.floor(W*H/9000);
+  for(let i=0;i<n;i++) stars.push({x:Math.random()*W, y:Math.random()*H*HORIZON*.95, r:rand(.5,1.6), p:rand(0,TAU)});
+}
+// mirrored geodesic ranges: a layered-sine ridge that scrolls outward from the centre
+const MTN = { a:rand(0,TAU), b:rand(0,TAU), c:rand(0,TAU) };
+function ridgeH(u){
+  const v = Math.sin(u*1.9+MTN.a) + .55*Math.sin(u*3.7+MTN.b) + .3*Math.sin(u*6.3+MTN.c);
+  return Math.max(0, v*.5 + .55);
+}
+function drawMountains(hy){
+  const span = Math.max(70, W*0.11);      // how wide one ridge cycle reads
+  const maxH = H*0.11;
+  const sunR = Math.min(W,H)*0.18;
+  cx.strokeStyle = 'rgba(123,47,190,.55)';
+  cx.lineWidth = 1;
+  for(let layer=0; layer<2; layer++){
+    const amp = maxH*(layer===0 ? 1 : .62), off = layer*1.7, yb = hy + layer*3;
+    cx.fillStyle = layer===0 ? '#180A33' : '#200D3F';
+    cx.beginPath();
+    cx.moveTo(0, yb);
+    for(let x=0; x<=W; x+=6){
+      const u = (x - W/2)/span;
+      // the range flattens out either side of the sun instead of spiking
+      // through it — the sun is the thing worth looking at up there
+      const dip = clamp(Math.abs(x - W/2)/(sunR*1.25), 0, 1);
+      cx.lineTo(x, yb - ridgeH(Math.abs(u)+off)*amp*(0.12 + 0.88*dip));
+    }
+    cx.lineTo(W, yb); cx.closePath(); cx.fill();
+    cx.stroke();
+  }
+}
+function drawBackdrop(){
+  const hy = H*HORIZON;
+  // sky
+  const sky = cx.createLinearGradient(0,0,0,hy);
+  sky.addColorStop(0,'#0B0420'); sky.addColorStop(.7,C.void2); sky.addColorStop(1,'#4A1660');
+  cx.fillStyle = sky; cx.fillRect(0,0,W,hy+2);
+  // stars
+  cx.fillStyle = C.ink;
+  for(let i=0;i<stars.length;i++){
+    const s = stars[i];
+    cx.globalAlpha = .35 + .45*Math.abs(Math.sin(now*.7+s.p));
+    cx.fillRect(s.x, s.y, s.r, s.r);
+  }
+  cx.globalAlpha = 1;
+  // synthwave sun
+  const sr = Math.min(W,H)*0.18, sunY = hy+sr*0.1;
+  cx.save();
+  cx.beginPath(); cx.arc(W/2, sunY, sr, Math.PI, 0); cx.closePath(); cx.clip();
+  const sg = cx.createLinearGradient(0,sunY-sr,0,sunY);
+  sg.addColorStop(0,C.sunTop); sg.addColorStop(1,C.sunBot);
+  cx.fillStyle = sg;
+  glow(C.pink, 40);
+  cx.fillRect(W/2-sr, sunY-sr, sr*2, sr);
+  noGlow();
+  // scanline slits, thicker near the bottom, slowly drifting
+  cx.fillStyle = '#0B0420';
+  for(let k=0;k<7;k++){
+    const yy = sunY - sr + sr*Math.pow((k + (now*.06)%1)/7, .8)*1.05;
+    cx.fillRect(W/2-sr, yy, sr*2, 1.5 + k*1.1);
+  }
+  cx.restore();
+  drawMountains(hy);
+  // ground
+  cx.fillStyle = '#0A0320'; cx.fillRect(0,hy,W,H-hy);
+  // horizon glow line
+  neon(C.pink, 12, 2);
+  cx.beginPath(); cx.moveTo(0,hy); cx.lineTo(W,hy); cx.stroke();
+  noGlow();
+  drawFloor(hy);
+}
+// a perspective floor grid receding to the horizon, behind the board
+function drawFloor(hy){
+  const vpx = W/2, span = H - hy;
+  neon(C.gridDim, 4, 1);
+  for(let i=-9;i<=9;i++){
+    const bx = vpx + i*(W*0.26);
+    cx.beginPath(); cx.moveTo(vpx + i*3, hy); cx.lineTo(bx, H); cx.stroke();
+  }
+  for(let k=0;k<13;k++){
+    const t = ((k/13) + (now*.028)%(1/13));
+    if(t > 1) continue;
+    const p = Math.pow(t, 2.1);
+    cx.globalAlpha = .12 + .42*p;
+    neon(C.grid, 5, .8 + 1.5*p);
+    const y = hy + span*p;
+    cx.beginPath(); cx.moveTo(0,y); cx.lineTo(W,y); cx.stroke();
+  }
+  cx.globalAlpha = 1;
+  noGlow();
+}
+
+/* ============================================================================
+   CATSWEEPER ENGINE
+   ----------------------------------------------------------------------------
+   Rules. A tile either hides a cat or it does not. Some tiles instead show a
+   number: that tile never hides a cat, and the number is exactly how many of
+   the eight tiles touching it do.
+
+   The generator never ships a puzzle that needs a guess. It starts from a
+   random cat layout, turns every catless tile into a clue, then throws clues
+   away one at a time for as long as a solver restricted to human deduction can
+   still finish the job. What survives is a minimal puzzle whose solution is
+   reachable by reasoning alone — and the reasoning needed is capped by the
+   tier, so an "easy" puzzle really is easy, not just small.
+
+   Tier 1  counting        a clue with its cats all found blocks the rest;
+                           a clue with just enough tiles left fills them all.
+   Tier 2  + overlap       if one clue's open tiles sit inside another's, the
+                           difference between the two counts settles the
+                           tiles only the second one covers.
+   Tier 3  + elimination   assume a tile holds a cat; if tiers 1-2 then reach a
+                           contradiction, it cannot, so block it. (And the
+                           mirror case.) One level deep — no guess trees.
+   ========================================================================== */
+/* [sweep:begin] */
+const SWEEP = (function(){
+
+  // eight-neighbour table for a given grid, built once and cached
+  const nbCache = {};
+  function nbTable(cols, rows){
+    const key = cols+'x'+rows;
+    if(nbCache[key]) return nbCache[key];
+    const n = cols*rows, t = new Array(n);
+    for(let r=0;r<rows;r++) for(let c=0;c<cols;c++){
+      const list = [];
+      for(let dr=-1;dr<=1;dr++) for(let dc=-1;dc<=1;dc++){
+        if(!dr && !dc) continue;
+        const rr = r+dr, cc = c+dc;
+        if(rr<0 || rr>=rows || cc<0 || cc>=cols) continue;
+        list.push(rr*cols+cc);
+      }
+      t[r*cols+c] = list;
+    }
+    nbCache[key] = t;
+    return t;
+  }
+
+  // clues near enough that their neighbourhoods can overlap (within 2 in both axes)
+  const nearCache = {};
+  function nearTable(cols, rows){
+    const key = cols+'x'+rows;
+    if(nearCache[key]) return nearCache[key];
+    const n = cols*rows, t = new Array(n);
+    for(let r=0;r<rows;r++) for(let c=0;c<cols;c++){
+      const list = [];
+      for(let dr=-2;dr<=2;dr++) for(let dc=-2;dc<=2;dc++){
+        if(!dr && !dc) continue;
+        const rr = r+dr, cc = c+dc;
+        if(rr<0 || rr>=rows || cc<0 || cc>=cols) continue;
+        list.push(rr*cols+cc);
+      }
+      t[r*cols+c] = list;
+    }
+    nearCache[key] = t;
+    return t;
+  }
+
+  function countCats(cats, i, NB){
+    const nb = NB[i]; let k = 0;
+    for(let j=0;j<nb.length;j++) if(cats[nb[j]]) k++;
+    return k;
+  }
+
+  /* ---- tiers 1 and 2, run to a fixpoint ----
+     st: -1 unknown, 0 no cat, 1 cat. Returns false on a contradiction. */
+  function propagate(st, clue, clueIdx, NB, NEAR, useOverlap){
+    const unk = [];                      // scratch, reused
+    for(;;){
+      let changed = false;
+      // --- tier 1: counting ---
+      for(let ci=0; ci<clueIdx.length; ci++){
+        const i = clueIdx[ci], nb = NB[i];
+        let need = clue[i]; unk.length = 0;
+        for(let k=0;k<nb.length;k++){
+          const s = st[nb[k]];
+          if(s === 1) need--;
+          else if(s === -1) unk.push(nb[k]);
+        }
+        if(need < 0 || need > unk.length) return false;
+        if(unk.length === 0) continue;
+        if(need === 0){ for(let k=0;k<unk.length;k++) st[unk[k]] = 0; changed = true; }
+        else if(need === unk.length){ for(let k=0;k<unk.length;k++) st[unk[k]] = 1; changed = true; }
+      }
+      if(changed) continue;
+      if(!useOverlap) return true;
+
+      // --- tier 2: overlap. Cache each clue's open tiles once per sweep. ---
+      const open = {}, want = {};
+      for(let ci=0; ci<clueIdx.length; ci++){
+        const i = clueIdx[ci], nb = NB[i];
+        let need = clue[i]; const u = [];
+        for(let k=0;k<nb.length;k++){
+          const s = st[nb[k]];
+          if(s === 1) need--;
+          else if(s === -1) u.push(nb[k]);
+        }
+        if(need < 0 || need > u.length) return false;
+        if(u.length){ open[i] = u; want[i] = need; }
+      }
+      for(let ci=0; ci<clueIdx.length && !changed; ci++){
+        const a = clueIdx[ci], ua = open[a];
+        if(!ua) continue;
+        const near = NEAR[a];
+        for(let k=0;k<near.length;k++){
+          const b = near[k], ub = open[b];
+          if(!ub || ub.length <= ua.length) continue;
+          // is every open tile of A also open in B?
+          let inside = true;
+          for(let x=0;x<ua.length;x++) if(ub.indexOf(ua[x]) < 0){ inside = false; break; }
+          if(!inside) continue;
+          const diff = [];
+          for(let x=0;x<ub.length;x++) if(ua.indexOf(ub[x]) < 0) diff.push(ub[x]);
+          const needDiff = want[b] - want[a];
+          if(needDiff < 0 || needDiff > diff.length) return false;
+          if(needDiff === 0){ for(let x=0;x<diff.length;x++) st[diff[x]] = 0; changed = true; break; }
+          if(needDiff === diff.length){ for(let x=0;x<diff.length;x++) st[diff[x]] = 1; changed = true; break; }
+        }
+      }
+      if(!changed) return true;
+    }
+  }
+
+  /* ---- full solve at a tier. Returns {ok, solved, state}. ----
+     ok=false means the clues contradict each other (never happens for a clue
+     set taken from a real layout, but the pruner relies on the check). */
+  function solve(clue, cols, rows, tier, seedState){
+    const NB = nbTable(cols, rows), NEAR = nearTable(cols, rows), n = cols*rows;
+    const st = new Int8Array(n).fill(-1);
+    const clueIdx = [];
+    for(let i=0;i<n;i++) if(clue[i] >= 0){ st[i] = 0; clueIdx.push(i); }
+    // hints start the solver from what the player has already worked out
+    if(seedState) for(let i=0;i<n;i++) if(seedState[i] === 0 || seedState[i] === 1) st[i] = seedState[i];
+    const useOverlap = tier >= 2;
+    if(!propagate(st, clue, clueIdx, NB, NEAR, useOverlap)) return {ok:false, solved:false, state:st};
+
+    if(tier >= 3){
+      for(;;){
+        let changed = false;
+        for(let i=0;i<n;i++){
+          if(st[i] !== -1) continue;
+          for(let v=1; v>=0; v--){
+            const t = st.slice(); t[i] = v;
+            if(!propagate(t, clue, clueIdx, NB, NEAR, true)){
+              st[i] = 1-v;                                   // that assumption breaks a clue
+              if(!propagate(st, clue, clueIdx, NB, NEAR, useOverlap)) return {ok:false, solved:false, state:st};
+              changed = true;
+              break;
+            }
+          }
+        }
+        if(!changed) break;
+      }
+    }
+    let solved = true;
+    for(let i=0;i<n;i++) if(st[i] === -1){ solved = false; break; }
+    return {ok:true, solved:solved, state:st};
+  }
+
+  /* ---- generate one puzzle ----
+     Returns {cols, rows, clue, cats, total, clueCount} or null if this size and
+     tier could not produce a clean puzzle within the attempt budget. */
+  function gen(seed, cols, rows, density, tier, attempts){
+    const NB = nbTable(cols, rows), n = cols*rows;
+    const rng = mulberry32(seed);
+    const tries = attempts || 60;
+    for(let attempt=0; attempt<tries; attempt++){
+      const cats = new Uint8Array(n);
+      let total = 0;
+      for(let i=0;i<n;i++) if(rng() < density){ cats[i] = 1; total++; }
+      if(total < 2 || total > n*0.55) continue;
+      // start from every catless tile showing its count — the most generous
+      // puzzle there is — and check it is deducible at all
+      const clue = new Int8Array(n).fill(-1);
+      for(let i=0;i<n;i++) if(!cats[i]) clue[i] = countCats(cats, i, NB);
+      let r = solve(clue, cols, rows, tier);
+      if(!r.ok || !r.solved) continue;
+
+      // throw clues away in random order, keeping only what the solver needs
+      const order = [];
+      for(let i=0;i<n;i++) if(clue[i] >= 0) order.push(i);
+      for(let i=order.length-1;i>0;i--){
+        const j = Math.floor(rng()*(i+1));
+        const tmp = order[i]; order[i] = order[j]; order[j] = tmp;
+      }
+      for(let k=0;k<order.length;k++){
+        const i = order[k], save = clue[i];
+        clue[i] = -1;
+        const t = solve(clue, cols, rows, tier);
+        if(!t.ok || !t.solved) clue[i] = save;
+      }
+
+      // the deduced answer must be the layout we started from
+      r = solve(clue, cols, rows, tier);
+      if(!r.ok || !r.solved) continue;
+      let match = true, clueCount = 0;
+      for(let i=0;i<n;i++){
+        if((r.state[i] === 1 ? 1 : 0) !== cats[i]){ match = false; break; }
+        if(clue[i] >= 0) clueCount++;
+      }
+      if(!match) continue;
+      return {cols:cols, rows:rows, clue:clue, cats:cats, total:total, clueCount:clueCount, tier:tier};
+    }
+    return null;
+  }
+
+  return { gen:gen, solve:solve, nbTable:nbTable, countCats:countCats };
+})();
+/* [sweep:end] */
+
+/* ============================================================================
+   CATDOKU ENGINE
+   ----------------------------------------------------------------------------
+   Rules. An N x N grid is cut into N irregular regions. Exactly one cat sits in
+   every row, every column and every region. That is the whole thing: no
+   numbers, no counting, just three overlapping "exactly one" constraints.
+
+   Generating these is the opposite problem to Catsweeper's. There, a random
+   layout is over-determined and clues get thrown away. Here a random set of
+   regions is wildly *under*-determined — a random 7x7 partition has a unique
+   solution roughly never — so the generator does not sample and hope. It lays
+   down the intended solution, grows regions around it, and then repairs: find
+   another solution, move one cell across a region border so that other solution
+   dies, and look again. Because every valid solution puts exactly one cat in
+   each region, taking a cell away from the region holding one of that
+   solution's cats leaves that region empty and kills it outright — and usually
+   several of its cousins with it. Ten to forty single-cell moves is enough.
+
+   Tier 1  confinement    A unit with one square left takes the cat. A unit with
+                          its cat placed gives up the rest. And the two rules
+                          that make this puzzle move at all: a region penned
+                          inside one row owns that row's cat, so the rest of the
+                          row is out; a row whose squares all lie in one region
+                          owns that region's cat, so the rest of the region is
+                          out.
+   Tier 2  + sets         If k rows can only reach k columns between them, those
+                          columns belong to those rows and nobody else — the
+                          same argument for rows against regions, and columns
+                          against regions.
+   Tier 3  + elimination  Assume a square holds the cat. If tiers 1-2 then
+                          contradict themselves, it does not. One step deep.
+   ========================================================================== */
+/* [doku:begin] */
+const DOKU = (function(){
+
+  const nb4Cache = {};
+  function nb4Table(N){
+    if(nb4Cache[N]) return nb4Cache[N];
+    const t = new Array(N*N);
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+      const o = [];
+      if(r>0) o.push((r-1)*N+c);
+      if(r<N-1) o.push((r+1)*N+c);
+      if(c>0) o.push(r*N+c-1);
+      if(c<N-1) o.push(r*N+c+1);
+      t[r*N+c] = o;
+    }
+    nb4Cache[N] = t;
+    return t;
+  }
+
+  // rows, then columns, then regions: 3N units, each wanting exactly one cat
+  function unitsFor(N, reg){
+    const u = [];
+    for(let r=0;r<N;r++){ const cells=[]; for(let c=0;c<N;c++) cells.push(r*N+c); u.push({kind:0, id:r, cells:cells}); }
+    for(let c=0;c<N;c++){ const cells=[]; for(let r=0;r<N;r++) cells.push(r*N+c); u.push({kind:1, id:c, cells:cells}); }
+    for(let g=0;g<N;g++){ const cells=[]; for(let i=0;i<N*N;i++) if(reg[i]===g) cells.push(i); u.push({kind:2, id:g, cells:cells}); }
+    return u;
+  }
+  function famKey(fam, i, N, reg){
+    return fam === 0 ? Math.floor(i/N) : fam === 1 ? (i % N) : reg[i];
+  }
+  function famCells(fam, key, N, reg){
+    const out = [];
+    if(fam === 0){ for(let c=0;c<N;c++) out.push(key*N+c); }
+    else if(fam === 1){ for(let r=0;r<N;r++) out.push(r*N+key); }
+    else { for(let i=0;i<N*N;i++) if(reg[i] === key) out.push(i); }
+    return out;
+  }
+  function popcount(x){ let n = 0; while(x){ x &= x-1; n++; } return n; }
+
+  /* ---- tier 2: k units that can only reach k of another family ----
+     Rows against columns is the familiar naked set; the same argument works for
+     rows against regions and columns against regions, which is where this
+     puzzle's harder middle ground lives. Returns true if it changed anything. */
+  function setRule(st, N, reg){
+    const FAMS = [[0,1],[1,0],[0,2],[2,0],[1,2],[2,1]];
+    for(let f=0; f<FAMS.length; f++){
+      const A = FAMS[f][0], B = FAMS[f][1];
+      // reach[a] = bitmask of B-keys that unit a of family A can still use
+      const reach = new Array(N).fill(0), cnt = new Array(N).fill(0);
+      for(let a=0;a<N;a++){
+        const cells = famCells(A, a, N, reg);
+        let m = 0;
+        for(let k=0;k<cells.length;k++) if(st[cells[k]] === -1) m |= (1 << famKey(B, cells[k], N, reg));
+        reach[a] = m;
+        cnt[a] = popcount(m);
+      }
+      // k = 2 and 3 cover everything a person would actually spot
+      for(let k=2;k<=3;k++){
+        const idx = [];
+        for(let a=0;a<N;a++) if(cnt[a] >= 2 && cnt[a] <= k) idx.push(a);
+        if(idx.length < k) continue;
+        const combo = new Array(k);
+        let changed = false;
+        const rec = function(start, depth, mask){
+          if(changed) return;
+          if(depth === k){
+            if(popcount(mask) !== k) return;
+            // those k B-keys are spoken for: clear them out of every other A unit
+            for(let a=0;a<N;a++){
+              if(combo.indexOf(a) >= 0) continue;
+              const cells = famCells(A, a, N, reg);
+              for(let x=0;x<cells.length;x++){
+                const i = cells[x];
+                if(st[i] !== -1) continue;
+                if(mask & (1 << famKey(B, i, N, reg))){ st[i] = 0; changed = true; }
+              }
+            }
+            return;
+          }
+          for(let p=start; p<idx.length; p++){
+            const a = idx[p];
+            const nm = mask | reach[a];
+            if(popcount(nm) > k) continue;
+            combo[depth] = a;
+            rec(p+1, depth+1, nm);
+            if(changed) return;
+          }
+        };
+        rec(0, 0, 0);
+        if(changed) return true;
+      }
+    }
+    return false;
+  }
+
+  /* ---- tier 1 (and tier 2 when asked), run to a fixpoint.
+         Returns false the moment the board contradicts itself. ---- */
+  function propagate(st, N, reg, units, useSets){
+    for(;;){
+      let changed = false;
+      for(let ui=0; ui<units.length; ui++){
+        const cells = units[ui].cells;
+        let cats = 0, only = -1, open = 0;
+        for(let k=0;k<cells.length;k++){
+          const v = st[cells[k]];
+          if(v === 1) cats++;
+          else if(v === -1){ open++; only = cells[k]; }
+        }
+        if(cats > 1) return false;
+        if(cats === 1){
+          if(open){ for(let k=0;k<cells.length;k++) if(st[cells[k]] === -1) st[cells[k]] = 0; changed = true; }
+          continue;
+        }
+        if(open === 0) return false;                  // a unit with nowhere to put its cat
+        if(open === 1){ st[only] = 1; changed = true; }
+      }
+      if(changed) continue;
+
+      // confinement, both directions, for every pairing of the three families
+      for(let ui=0; ui<units.length && !changed; ui++){
+        const u = units[ui], cells = u.cells;
+        const cand = [];
+        for(let k=0;k<cells.length;k++) if(st[cells[k]] === -1) cand.push(cells[k]);
+        if(cand.length < 2) continue;
+        for(let fam=0; fam<3; fam++){
+          if(fam === u.kind) continue;
+          // do all of u's open squares share one row / column / region?
+          const key0 = famKey(fam, cand[0], N, reg);
+          let same = true;
+          for(let k=1;k<cand.length;k++) if(famKey(fam, cand[k], N, reg) !== key0){ same = false; break; }
+          if(!same) continue;
+          // then that other unit's cat is inside u, so all of it outside u is out
+          const other = famCells(fam, key0, N, reg);
+          for(let k=0;k<other.length;k++){
+            const i = other[k];
+            if(st[i] !== -1) continue;
+            if(famKey(u.kind, i, N, reg) === u.id) continue;   // still inside u
+            st[i] = 0; changed = true;
+          }
+          if(changed) break;
+        }
+      }
+      if(changed) continue;
+      if(!useSets) return true;
+      if(!setRule(st, N, reg)) return true;           // nothing a set argument can reach
+    }
+  }
+
+
+  /* ---- what could a person work out next, and from what? ----
+     Mirrors propagate's rule order exactly, but stops at the first deduction
+     and reports what it was. A hint built on this can point at the reasoning
+     instead of just filling a square in, which is the difference between
+     learning the opening move and being handed it. */
+  const FAM_NAME = ['ROW', 'COLUMN', 'REGION'];
+  function firstMove(N, reg, seedState){
+    const n = N*N, units = unitsFor(N, reg);
+    const st = new Int8Array(n).fill(-1);
+    if(seedState) for(let i=0;i<n;i++) if(seedState[i] === 0 || seedState[i] === 1) st[i] = seedState[i];
+
+    // rule 1, in propagate's order: a unit that already has its cat, then a
+    // unit with only one square left to put one in
+    for(let ui=0; ui<units.length; ui++){
+      const u = units[ui], cand = [];
+      let cats = 0;
+      for(let k=0;k<u.cells.length;k++){
+        const v = st[u.cells[k]];
+        if(v === 1) cats++;
+        else if(v === -1) cand.push(u.cells[k]);
+      }
+      if(cats === 1 && cand.length)
+        return { rule:'clear', focus:[], clear:cand, unit:u,
+                 text:'THIS ' + FAM_NAME[u.kind] + ' ALREADY HAS ITS CAT' };
+      if(cats === 0 && cand.length === 1)
+        return { rule:'last', focus:cand, clear:[], unit:u, place:cand[0],
+                 text:'ONE SQUARE LEFT IN THIS ' + FAM_NAME[u.kind] };
+    }
+
+    // rule 2: confinement — a unit whose open squares all share one row,
+    // column or region owns that unit's cat, so the rest of it is out
+    for(let ui=0; ui<units.length; ui++){
+      const u = units[ui], cand = [];
+      let cats = 0;
+      for(let k=0;k<u.cells.length;k++){
+        const v = st[u.cells[k]];
+        if(v === 1) cats++;
+        else if(v === -1) cand.push(u.cells[k]);
+      }
+      if(cats || cand.length < 2) continue;
+      for(let fam=0; fam<3; fam++){
+        if(fam === u.kind) continue;
+        const key0 = famKey(fam, cand[0], N, reg);
+        let same = true;
+        for(let k=1;k<cand.length;k++) if(famKey(fam, cand[k], N, reg) !== key0){ same = false; break; }
+        if(!same) continue;
+        const other = famCells(fam, key0, N, reg), clear = [];
+        for(let k=0;k<other.length;k++){
+          const i = other[k];
+          if(st[i] === -1 && famKey(u.kind, i, N, reg) !== u.id) clear.push(i);
+        }
+        if(!clear.length) continue;
+        return { rule:'confine', focus:cand, clear:clear, unit:u,
+                 text:'THIS ' + FAM_NAME[u.kind] + ' SITS INSIDE ONE ' + FAM_NAME[fam] };
+      }
+    }
+
+    // rule 3: sets — k units of one family reaching only k of another
+    const FAMS = [[0,1],[1,0],[0,2],[2,0],[1,2],[2,1]];
+    for(let f=0; f<FAMS.length; f++){
+      const A = FAMS[f][0], B = FAMS[f][1];
+      const reach = new Array(N).fill(0), cnt = new Array(N).fill(0);
+      for(let a=0;a<N;a++){
+        const cells = famCells(A, a, N, reg);
+        let m = 0;
+        for(let k=0;k<cells.length;k++) if(st[cells[k]] === -1) m |= (1 << famKey(B, cells[k], N, reg));
+        reach[a] = m; cnt[a] = popcount(m);
+      }
+      for(let k=2;k<=3;k++){
+        const idx = [];
+        for(let a=0;a<N;a++) if(cnt[a] >= 2 && cnt[a] <= k) idx.push(a);
+        if(idx.length < k) continue;
+        const combo = new Array(k);
+        let hit = null;
+        const rec = function(start, depth, mask){
+          if(hit) return;
+          if(depth === k){
+            if(popcount(mask) !== k) return;
+            const focus = [], clear = [];
+            for(let a=0;a<N;a++){
+              const cells = famCells(A, a, N, reg), mine = combo.indexOf(a) >= 0;
+              for(let x=0;x<cells.length;x++){
+                const i = cells[x];
+                if(st[i] !== -1) continue;
+                if(!(mask & (1 << famKey(B, i, N, reg)))) continue;
+                if(mine) focus.push(i); else clear.push(i);
+              }
+            }
+            if(clear.length) hit = { focus:focus, clear:clear,
+              text:'THESE ' + k + ' ' + FAM_NAME[A] + 'S ONLY REACH ' + k + ' ' + FAM_NAME[B] + 'S' };
+            return;
+          }
+          for(let p=start; p<idx.length; p++){
+            const a = idx[p], nm = mask | reach[a];
+            if(popcount(nm) > k) continue;
+            combo[depth] = a;
+            rec(p+1, depth+1, nm);
+            if(hit) return;
+          }
+        };
+        rec(0, 0, 0);
+        if(hit) return { rule:'set', focus:hit.focus, clear:hit.clear, unit:null, text:hit.text };
+      }
+    }
+
+    // rule 4: elimination — assume, and watch it break
+    for(let i=0;i<n;i++){
+      if(st[i] !== -1) continue;
+      const t = st.slice(); t[i] = 1;
+      if(!propagate(t, N, reg, units, true))
+        return { rule:'eliminate', focus:[i], clear:[i], unit:null,
+                 text:'A CAT HERE BREAKS SOMETHING' };
+    }
+    return null;
+  }
+
+  /* ---- solve at a tier. Returns {ok, solved, state}. ---- */
+  function solve(N, reg, tier, seedState){
+    const n = N*N, units = unitsFor(N, reg);
+    const st = new Int8Array(n).fill(-1);
+    // hints start the solver from what the player has already worked out
+    if(seedState) for(let i=0;i<n;i++) if(seedState[i] === 0 || seedState[i] === 1) st[i] = seedState[i];
+    const useSets = tier >= 2;
+    if(!propagate(st, N, reg, units, useSets)) return {ok:false, solved:false, state:st};
+    if(tier >= 3){
+      for(;;){
+        let changed = false;
+        for(let i=0;i<n;i++){
+          if(st[i] !== -1) continue;
+          const t = st.slice(); t[i] = 1;
+          if(!propagate(t, N, reg, units, true)){
+            st[i] = 0;                                 // that assumption breaks a unit
+            if(!propagate(st, N, reg, units, useSets)) return {ok:false, solved:false, state:st};
+            changed = true;
+          }
+        }
+        if(!changed) break;
+      }
+    }
+    let solved = true;
+    for(let i=0;i<n;i++) if(st[i] === -1){ solved = false; break; }
+    return {ok:true, solved:solved, state:st};
+  }
+
+  // the lowest tier that finishes this grid, or 4 if it needs more than we teach
+  function tierOf(N, reg){
+    for(let t=1;t<=3;t++){
+      const r = solve(N, reg, t);
+      if(r.ok && r.solved) return t;
+    }
+    return 4;
+  }
+
+  /* ---- enumeration, used by the repair loop and by the tests ---- */
+  function solutions(N, reg, limit){
+    const out = [];
+    const usedCol = new Array(N).fill(false), usedReg = new Array(N).fill(false);
+    const pick = new Array(N).fill(-1);
+    (function dfs(r){
+      if(out.length >= limit) return;
+      if(r === N){ out.push(pick.slice()); return; }
+      for(let c=0;c<N;c++){
+        if(usedCol[c]) continue;
+        const g = reg[r*N+c];
+        if(usedReg[g]) continue;
+        usedCol[c] = usedReg[g] = true; pick[r] = c;
+        dfs(r+1);
+        usedCol[c] = usedReg[g] = false; pick[r] = -1;
+        if(out.length >= limit) return;
+      }
+    })(0);
+    return out;
+  }
+
+  function shuffle(a, rng){
+    for(let i=a.length-1;i>0;i--){ const j = Math.floor(rng()*(i+1)); const t=a[i]; a[i]=a[j]; a[j]=t; }
+    return a;
+  }
+
+  /* ---- grow N connected regions outward from the N cats ---- */
+  function growRegions(N, perm, rng){
+    const n = N*N, NB = nb4Table(N);
+    const reg = new Int8Array(n).fill(-1), frontier = [], size = new Array(N).fill(1);
+    for(let r=0;r<N;r++){ const i = r*N+perm[r]; reg[i] = r; frontier.push([i]); }
+    let left = n-N, guard = 0;
+    while(left > 0 && guard++ < n*40){
+      // smallest regions grow first, with enough jitter to keep shapes organic
+      const order = [];
+      for(let k=0;k<N;k++) if(frontier[k].length) order.push(k);
+      if(!order.length) break;
+      order.sort(function(a,b){ return (size[a]-size[b]) + (rng()-0.5)*1.4; });
+      let grew = false;
+      for(let oi=0; oi<order.length && !grew; oi++){
+        const k = order[oi], f = frontier[k];
+        while(f.length){
+          const p = Math.floor(rng()*f.length), i = f[p];
+          const cand = [], nb = NB[i];
+          for(let x=0;x<nb.length;x++) if(reg[nb[x]] < 0) cand.push(nb[x]);
+          if(!cand.length){ f.splice(p,1); continue; }
+          const j = cand[Math.floor(rng()*cand.length)];
+          reg[j] = k; size[k]++; f.push(j); left--; grew = true;
+          break;
+        }
+      }
+      if(!grew) break;
+    }
+    return left === 0 ? reg : null;
+  }
+
+  // would this region survive losing one of its cells?
+  function stillConnected(N, reg, g, without){
+    const NB = nb4Table(N), n = N*N;
+    let seed = -1, total = 0;
+    for(let i=0;i<n;i++) if(reg[i] === g && i !== without){ total++; if(seed < 0) seed = i; }
+    if(total === 0) return false;
+    const seen = new Uint8Array(n), stack = [seed];
+    seen[seed] = 1;
+    let found = 1;
+    while(stack.length){
+      const i = stack.pop(), nb = NB[i];
+      for(let x=0;x<nb.length;x++){
+        const j = nb[x];
+        if(reg[j] === g && j !== without && !seen[j]){ seen[j] = 1; found++; stack.push(j); }
+      }
+    }
+    return found === total;
+  }
+
+  /* ---- kill one unwanted solution by moving a single cell ----
+     Every valid solution holds exactly one cat per region, so lifting the cell
+     that carries `alt`'s cat out of its region leaves that region with none and
+     `alt` stops being a solution — wherever the cell lands. The intended
+     solution is untouched because we never move one of its cells. */
+  function killAlternative(N, reg, perm, alt, rng){
+    const NB = nb4Table(N), n = N*N;
+    const size = new Array(N).fill(0);
+    for(let i=0;i<n;i++) size[reg[i]]++;
+    const isSolution = {};
+    for(let r=0;r<N;r++) isSolution[r*N+perm[r]] = 1;
+    const cells = [];
+    for(let r=0;r<N;r++) cells.push(r*N+alt[r]);
+    shuffle(cells, rng);
+    for(let x=0;x<cells.length;x++){
+      const c1 = cells[x];
+      if(isSolution[c1]) continue;
+      const g1 = reg[c1];
+      if(size[g1] <= 2) continue;                     // a one-cell region gives a cat away
+      const nb = shuffle(NB[c1].slice(), rng);
+      for(let y=0;y<nb.length;y++){
+        const g2 = reg[nb[y]];
+        if(g2 === g1) continue;
+        if(size[g2] >= 2*N) continue;                 // and a sprawling one says nothing
+        if(!stillConnected(N, reg, g1, c1)) continue;
+        reg[c1] = g2;
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /* ---- generate one puzzle ----
+     Returns {N, cols, rows, reg, cats, total, tier} or null. `wantTier` is
+     honoured by rejection: the repair loop stops the moment the puzzle is
+     unique, so difficulty lands where it lands, and we keep the ones we asked
+     for — falling back to the closest we saw. */
+  function gen(seed, N, wantTier, attempts){
+    const rng = mulberry32(seed);
+    const tries = attempts || 40;
+    let fallback = null;
+    for(let attempt=0; attempt<tries; attempt++){
+      const perm = shuffle([...Array(N).keys()], rng);
+      const reg = growRegions(N, perm, rng);
+      if(!reg) continue;
+      let unique = false, stuck = 0;
+      for(let step=0; step<600; step++){
+        const sols = solutions(N, reg, 6);
+        if(sols.length === 1){ unique = true; break; }
+        let moved = false;
+        for(let si=0; si<sols.length; si++){
+          const cand = sols[si];
+          let differs = false;
+          for(let r=0;r<N;r++) if(cand[r] !== perm[r]){ differs = true; break; }
+          if(!differs) continue;
+          if(killAlternative(N, reg, perm, cand, rng)){ moved = true; break; }
+        }
+        if(!moved){ if(++stuck > 3) break; } else stuck = 0;
+      }
+      if(!unique) continue;
+      // the one solution must be the one we designed
+      const sol = solutions(N, reg, 2);
+      if(sol.length !== 1) continue;
+      let same = true;
+      for(let r=0;r<N;r++) if(sol[0][r] !== perm[r]){ same = false; break; }
+      if(!same) continue;
+
+      const cats = new Uint8Array(N*N);
+      for(let r=0;r<N;r++) cats[r*N+perm[r]] = 1;
+      const t = tierOf(N, reg);
+      if(t > 3) continue;                             // beyond what the game teaches
+      const out = {N:N, cols:N, rows:N, reg:reg, cats:cats, total:N, tier:t};
+      if(t === wantTier) return out;
+      if(!fallback || Math.abs(t-wantTier) < Math.abs(fallback.tier-wantTier)) fallback = out;
+    }
+    return fallback;
+  }
+
+  /* ---- compact serialisation ----
+     Generating a 9x9 takes a couple of seconds, which is fine for a build step
+     and not fine on a phone at level load, so the campaign levels are built by
+     tools/build-levels.mjs and shipped as strings: one region digit per square,
+     then the column of each row's cat, then the tier it needs. */
+  function encode(p){
+    let out = '';
+    for(let i=0;i<p.N*p.N;i++) out += p.reg[i].toString(36);
+    out += '.';
+    for(let r=0;r<p.N;r++){
+      let c = 0;
+      while(c < p.N && !p.cats[r*p.N+c]) c++;
+      out += c.toString(36);
+    }
+    return out + '.' + p.tier;
+  }
+  function decode(str){
+    const part = str.split('.');
+    const N = part[1].length;
+    const reg = new Int8Array(N*N), cats = new Uint8Array(N*N);
+    for(let i=0;i<N*N;i++) reg[i] = parseInt(part[0][i], 36);
+    for(let r=0;r<N;r++) cats[r*N + parseInt(part[1][r], 36)] = 1;
+    return { N:N, cols:N, rows:N, reg:reg, cats:cats, total:N, tier:parseInt(part[2],10)||1 };
+  }
+
+  return { gen:gen, solve:solve, solutions:solutions, tierOf:tierOf, unitsFor:unitsFor,
+           firstMove:firstMove, encode:encode, decode:decode };
+})();
+/* [doku:end] */
+
+/* ---------- the Catdoku campaign, pre-built ----------
+   Written by `node tools/build-levels.mjs`. Do not hand-edit: every entry has
+   been checked for a unique solution and for solvability at the tier it claims.
+   Rebuilding changes which puzzles players get, so do it deliberately. */
+/* [dokulevels:begin] */
+const DOKU_LEVELS = [
+  '1100011220122331144311144.20143.1', '4000144001440224433244432.14320.1', '1100011100322203220044200.42301.1', '0000001110021112231144311.43120.1',
+  '3300123301223002333422344.24013.1', '1110033122334424334444444.32410.1', '0004411004312243224422444.21304.1', '0000020101221114331143111.34120.1',
+  '3000130221333224344444444.24310.1', '1110022111243334443444444.42031.1', '0011121131233333334433444.14023.1', '0004411004210042333433444.21034.1',
+  '000000101000111002131222533344533333.325140.1', '000112001112311122334122534422544222.245130.1', '411100422133422233444335545555555555.532410.1', '001111011111002221433221455221555522.154203.1',
+  '001222001125311225341255344555445555.134025.1', '001111222144523344522334533344555444.031452.1', '013334011334223334233354255554255555.021354.1', '222001223011523334553344555334555555.341250.2',
+  '001112011112011122022223544333533333.134520.1', '411100444111444325443325445555455555.534201.1', '210000211000221033251113455133455533.421503.1', '000011000111000112340212344222554422.345021.1',
+  '0000004110000421100042334444554464655556465556666.4102536.1', '0000111000211100222110332221433222143322256633355.3542061.1', '1100222311022233105623314566531455653155565555566.2160345.1', '2211100222211123322113332411363445636664563366666.6401352.1',
+  '0000111202011122222312222331243333344553334665333.0645132.1', '2220011222201332333333333355344455564665666666666.3510246.2', '2111000222110022110002633000663344056334445664444.6413502.2', '1100222111033214133524443556454556655455665555666.2163045.2',
+  '2210000221100032211103322110433350046635504666655.6321054.2', '4223300442333142235114443555664555566655556666655.5613240.2', '0002333000233100223112223341223344152544465554466.1623405.2', '2000011200011122000113222111365441466554446665555.4510632.2',
+  '0033111103321117033244470333477703334477533344775556677766667777.16325047.2', '1100000011120220112222003222220033222400355544663554444677555466.62405371.2', '7111110077771122774441327744433277744535765555557666655677666666.64753210.2', '0000333100003311622334416333544466355554665557777655777777777777.06237415.2',
+  '0011222200011224031122440331444433114444333344546773355567773555.14527603.2', '1100000011122000111122201144223055444233657722236777223377772233.72564103.2', '1111220011111223111122331122233314242233444427354666775566677755.60451723.2', '1122200412220044332304473333447733344477665554776655777765557777.60235417.2',
+  '2222200022211044233314443373145537771455333755557337766577777655.73015462.2', '2222001122222011222330442322334433333444333334453666755566677777.46015723.2', '3311100033111100331121003332222243326522443365524466655577666655.75420631.2', '2222200122224301554243335544443375554443775664737666677377777777.57364210.2',
+  '000000011000000111000211111522213133522223334557723444655733444666737444888777774.463781052.2', '433000000433000010433002111433332211444335221445535221644555551667888581777888881.875413026.2', '332220011322222221333262255436662555446666658777777658778877668777888888778888888.583107624.2', '111333002113333302133333402133366444133666644755666644766686684788888884888888888.618372504.2',
+  '000000111020011113220000113200044443200224444222224455622275558622777788677777888.241857036.2', '444000000444022211440002333445553333444453833455558833556658333656668337666688777.375601284.2', '111111100222133111233333555334377555444375555477776656477777666488877766488887666.830127654.2', '111000000111400222111402222111444322114445333444455333655553333655553877665553887.315624087.2',
+  '001112222011122323011222333444456638444556668745556688755566688755668888556668888.135724608.2', '001111222011111222011131222000031322000333324500033344555556334857766644888777664.147680532.2', '000011111000111112300012112330422122333442222333455252774445556877445556874446666.365147820.2', '222113000222133330272333344775336334775566364775566666777566668777555668777566688.630482517.2',
+];
+/* [dokulevels:end] */
+
+/* ---------- zones and levels ----------
+   Five zones of twelve. Grids stay taller than they are wide because phones
+   are, and grow only as fast as the deduction the tier allows. Par times are
+   what a comfortable solve looks like — beat par with no hints for three stars. */
+/* [levels:begin] */
+const MODE = { DOKU:'doku', SWEEP:'sweep' };
+const PER_ZONE = 12;
+const LAST_LEVEL = 60;
+
+/* Two games, one grid. Catdoku is the headline — one cat per row, per column
+   and per region — and there the difficulty is mostly the size of the grid.
+   Catsweeper is the counting game, where difficulty is how deep the deduction
+   has to go. Each mode keeps its own five zones, par times and progress. */
+const MODES = {
+  doku: {
+    key:'doku', name:'CATDOKU', short:'DOKU',
+    blurb:'One cat in every row, every column and every region.',
+    // grid sizes live in the pre-built level data; these are just the labels
+    zones: [
+      { name:'THE LITTER',    desc:'Five by five. Three rules and no numbers.',              par:55  },
+      { name:'THE COURTYARD', desc:'One more row, and a lot more to keep track of.',         par:105 },
+      { name:'THE ROOFTOPS',  desc:'Regions start penning rows in, and rows pen regions.',   par:185 },
+      { name:'THE BOULEVARD', desc:'Now the sets: what two rows share belongs to them.',     par:300 },
+      { name:'THE CATHEDRAL', desc:'Nine cats, eighty-one squares, one arrangement.',        par:460 },
+    ],
+  },
+  sweep: {
+    key:'sweep', name:'CATSWEEPER', short:'SWEEP',
+    blurb:'Numbered tiles count the cats in the eight tiles touching them.',
+    zones: [
+      { name:'THE ALLEY',     desc:'Small grids. Learn to count on your paws.',              cols:5, rows:6,  tier:[1,1,1,1,1,1,2,2,2,2,2,2], density:.30, par:75  },
+      { name:'THE ARCADE',    desc:'Roomier, and the overlaps start to matter.',             cols:6, rows:8,  tier:[1,1,2,2,2,2,2,2,2,2,3,3], density:.32, par:150 },
+      { name:'NEON DISTRICT', desc:'Where two clues disagree, the answer is between them.',  cols:7, rows:9,  tier:[2,2,2,2,2,3,3,3,3,3,3,3], density:.33, par:260 },
+      { name:'THE SKYLINE',   desc:'Assume, break it, and you have proved the opposite.',    cols:8, rows:10, tier:[2,2,3,3,3,3,3,3,3,3,3,3], density:.34, par:400 },
+      { name:'THE GRID',      desc:'Every cat in the city, and nowhere left to guess.',      cols:9, rows:12, tier:[3,3,3,3,3,3,3,3,3,3,3,3], density:.35, par:620 },
+    ],
+  },
+};
+const MODE_ORDER = ['doku','sweep'];
+function zonesOf(m){ return MODES[m].zones; }
+
+// level 1..60 of a mode -> everything needed to build and score it
+function levelConfig(m, lv){
+  const n = clamp(lv, 1, LAST_LEVEL) - 1;
+  const zi = Math.floor(n/PER_ZONE), k = n % PER_ZONE;
+  const z = zonesOf(m)[zi];
+  const cfg = { mode:m, level:n+1, zone:zi, idx:k, par:Math.round(z.par * (0.72 + 0.05*k)) };
+  if(m === MODE.DOKU){
+    cfg.data = DOKU_LEVELS[n] || DOKU_LEVELS[0];
+    cfg.N = cfg.data.split('.')[1].length;
+    cfg.cols = cfg.rows = cfg.N;
+    cfg.tier = parseInt(cfg.data.split('.')[2], 10) || 1;
+  }else{
+    cfg.cols = z.cols; cfg.rows = z.rows; cfg.tier = z.tier[k]; cfg.density = z.density;
+    cfg.seed = 0x9E3779B1 ^ ((n+1) * 2654435761);      // fixes this puzzle forever
+  }
+  return cfg;
+}
+// what a zone tab should say the grid is
+function zoneGrid(m, zi){
+  if(m === MODE.DOKU){
+    const c = levelConfig(m, zi*PER_ZONE + 1);
+    return c.N + '×' + c.N;
+  }
+  const z = zonesOf(m)[zi];
+  return z.cols + '×' + z.rows;
+}
+/* [levels:end] */
+
+/* ---------- the cat, in pixels ----------
+   F fur, D shading, E eye, N nose, W muzzle. One 11x11 face reads better in a
+   small tile than a whole body does, and the ears break the square nicely. */
+const CAT_PIX = [
+  'F.........F',
+  'FF.......FF',
+  'FDF.....FDF',
+  'FFFFFFFFFFF',
+  'FFFFFFFFFFF',
+  'FFEEFFFEEFF',
+  'FFEEFFFEEFF',
+  'FFFFFNFFFFF',
+  'FDFFWWWFFDF',
+  '.FFFFFFFFF.',
+  '..FFFFFFF..',
+];
+// eyes shut: the same face mid-blink
+const CAT_BLINK_ROWS = { 5:'FFFFFFFFFFF', 6:'FFEEFFFEEFF' };
+const spriteCache = {};
+function catSprite(skinKey, px, blink, hueShift, flip){
+  const key = skinKey+'|'+px+'|'+(blink?1:0)+'|'+(hueShift||0)+'|'+(flip?1:0);
+  if(spriteCache[key]) return spriteCache[key];
+  const S = CATS[skinKey] || CATS.tabby;
+  const rowsN = CAT_PIX.length, colsN = CAT_PIX[0].length;
+  const unit = Math.max(1, Math.floor(px/colsN));
+  const c = document.createElement('canvas');
+  c.width = unit*colsN; c.height = unit*rowsN;
+  const g = c.getContext('2d');
+  let fur = S.fur, fur2 = S.fur2, eye = S.eye;
+  if(skinKey === 'glitch' && hueShift){                 // the glitch cat cycles
+    const wheel = ['#2DE2FF','#FF2E97','#A6FF3F','#FFE23F','#B84FFF'];
+    fur = wheel[hueShift % wheel.length];
+    fur2 = wheel[(hueShift+2) % wheel.length];
+  }
+  const paint = { F:fur, D:fur2, E:eye, N:'#FF7CBE', W:'rgba(255,250,255,.72)' };
+  for(let r=0;r<rowsN;r++){
+    let row = CAT_PIX[r];
+    if(blink && CAT_BLINK_ROWS[r]) row = CAT_BLINK_ROWS[r];
+    if(flip) row = row.split('').reverse().join('');
+    for(let q=0;q<colsN;q++){
+      const ch = row[q];
+      if(ch === '.') continue;
+      g.fillStyle = paint[ch] || fur;
+      g.fillRect(q*unit, r*unit, unit, unit);
+    }
+  }
+  spriteCache[key] = c;
+  return c;
+}
+
+/* ---------- game state ---------- */
+const ST = { MENU:0, PLAY:1, PAUSE:2, WIN:3 };
+let state = ST.MENU;
+const MK = { NONE:0, CAT:1, BLOCK:2 };
+
+let board = null;       // the live puzzle
+let BL = { x:0, y:0, cell:0, cols:0, rows:0 };
+let undoStack = [];
+let elapsed = 0, hintsUsed = 0, curLevel = 1, isDaily = false;
+// the board's own working, shown on request. On by default: it is bookkeeping
+// the player could do by hand, not an answer.
+let autoX = true;
+try{ autoX = localStorage.getItem('catdoku-autox') !== '0'; }catch(e){}
+let openerShown = false;    // the opener fills nothing in, so pressing hint
+                            // again has to fall through to a real reveal
+let pulses = [];        // short-lived tile highlights from hints and errors
+let hintShow = null;    // the opening deduction, washed over the board
+let shake = 0, flashA = 0;
+
+function todayKey(){
+  const d = new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function dailyConfig(m){
+  const k = todayKey();
+  let h = 2166136261;
+  for(let i=0;i<k.length;i++){ h ^= k.charCodeAt(i); h = Math.imul(h, 16777619); }
+  const seed = h >>> 0;
+  // 7x7 keeps a Catdoku daily inside a fraction of a second of generation; the
+  // campaign levels avoid the question entirely by being pre-built
+  if(m === MODE.DOKU) return { mode:m, key:k, N:7, cols:7, rows:7, tier:2, par:210, seed:seed };
+  return { mode:m, key:k, cols:7, rows:9, tier:3, density:.33, par:300, seed:seed };
+}
+
+/* The board would rather stand on the neon floor than straddle the horizon, so
+   it starts just below it. A grid too big to fit down there gets the sky as
+   well — cramped tiles are worse than a busy background. */
+// how far outside the grid a Catdoku pip reaches, for a given square size
+function pipExtent(cell){ return clamp(cell*0.2, 9, 19) + clamp(cell*0.075, 2, 6) + 4; }
+let boardGutter = 0;
+function layoutBoard(){
+  if(!board) return;
+  const padBot = 96;
+  const doku = board.mode === MODE.DOKU;
+  const fitAt = function(top, gut){
+    const availW = Math.min(W - 22 - gut*2, 620);   // a 5-wide grid must not sprawl on a tablet
+    const availH = Math.max(60, H - top - padBot - gut*2);
+    return Math.min(availW/board.cols, availH/board.rows);
+  };
+  // The pips need a gutter, but how big depends on the square size, which
+  // depends on the gutter. One extra pass settles it, and a 7-wide grid keeps
+  // about 20px of width it would otherwise have given away.
+  let gut = doku ? 28 : 0;
+  const onFloor = H*HORIZON + 16;
+  let top = onFloor, cell = fitAt(onFloor, gut);
+  if(cell < 46){ top = 92; cell = fitAt(92, gut); }
+  if(doku){
+    gut = Math.ceil(pipExtent(cell));
+    cell = fitAt(top, gut);
+    if(top === onFloor && cell < 46){ top = 92; cell = fitAt(92, gut); }
+  }
+  cell = Math.floor(clamp(cell, 16, 132));
+  boardGutter = doku ? Math.ceil(pipExtent(cell)) : 7;
+  const availH = Math.max(60, H - top - padBot);
+  BL.cell = cell;
+  BL.cols = board.cols; BL.rows = board.rows;
+  BL.x = Math.round((W - cell*board.cols)/2);
+  BL.y = Math.round(top + Math.max(0,(availH - cell*board.rows))/2);
+}
+
+// squares the player may never mark: Catsweeper's numbered tiles
+function isFixed(i){ return board.mode === MODE.SWEEP && board.clue[i] >= 0; }
+
+/* ---------- Catsweeper clue bookkeeping ----------
+   0 neutral, 1 satisfied (its count is met), 2 broken (impossible from here). */
+function refreshSweep(){
+  const b = board;
+  const NB = SWEEP.nbTable(b.cols, b.rows), n = b.cols*b.rows;
+  let placed = 0, allMet = true;
+  for(let i=0;i<n;i++) if(b.mark[i] === MK.CAT) placed++;
+  for(let i=0;i<n;i++){
+    if(b.clue[i] < 0){ b.cstate[i] = 0; continue; }
+    const nb = NB[i];
+    let have = 0, open = 0;
+    for(let k=0;k<nb.length;k++){
+      const mk = b.mark[nb[k]];
+      if(mk === MK.CAT) have++;
+      else if(mk === MK.NONE) open++;
+    }
+    let st = 0;
+    if(have > b.clue[i] || have + open < b.clue[i]) st = 2;
+    else if(have === b.clue[i]) st = 1;
+    b.cstate[i] = st;
+    if(st !== 1) allMet = false;
+  }
+  b.placed = placed;
+  b.done = allMet;
+}
+
+/* ---------- Catdoku unit bookkeeping ----------
+   3N units — every row, every column, every region — each wanting exactly one
+   cat. ustate mirrors Catsweeper's clue states: 0 empty, 1 satisfied, 2 too
+   many. A cat breaking any of its three units is flagged so the board can ring
+   it, which is the only feedback this mode needs. */
+function refreshDoku(){
+  const b = board, N = b.N, n = N*N;
+  const rowC = new Int8Array(N), colC = new Int8Array(N), regC = new Int8Array(N);
+  let placed = 0;
+  for(let i=0;i<n;i++){
+    if(b.mark[i] !== MK.CAT) continue;
+    placed++;
+    rowC[Math.floor(i/N)]++; colC[i % N]++; regC[b.reg[i]]++;
+  }
+  const grade = function(k){ return k > 1 ? 2 : k === 1 ? 1 : 0; };
+  let allMet = true;
+  for(let k=0;k<N;k++){
+    b.ustate[k]     = grade(rowC[k]);
+    b.ustate[N+k]   = grade(colC[k]);
+    b.ustate[2*N+k] = grade(regC[k]);
+    if(rowC[k] !== 1 || colC[k] !== 1 || regC[k] !== 1) allMet = false;
+  }
+  for(let i=0;i<n;i++){
+    b.conflict[i] = (b.mark[i] === MK.CAT &&
+      (rowC[Math.floor(i/N)] > 1 || colC[i % N] > 1 || regC[b.reg[i]] > 1)) ? 1 : 0;
+    // an empty square a cat already rules out. Kept apart from the player's own
+    // blocks: this is the board showing its working, not a mark you made.
+    b.ghost[i] = (b.mark[i] === MK.NONE &&
+      (rowC[Math.floor(i/N)] > 0 || colC[i % N] > 0 || regC[b.reg[i]] > 0)) ? 1 : 0;
+  }
+  b.placed = placed;
+  b.done = allMet;
+}
+
+function refreshBoard(){
+  const b = board; if(!b) return false;
+  if(b.mode === MODE.DOKU) refreshDoku(); else refreshSweep();
+  hudCats.textContent = String(b.total - b.placed);
+  hudCats.classList.toggle('done', b.total - b.placed === 0);
+  return b.done;
+}
+// how many constraints are currently satisfied — only used to decide whether a
+// tap has earned its little confirming chime
+function satisfiedCount(){
+  const b = board; if(!b) return 0;
+  let k = 0;
+  if(b.mode === MODE.DOKU){ for(let u=0;u<b.ustate.length;u++) if(b.ustate[u] === 1) k++; }
+  else { for(let i=0;i<b.cstate.length;i++) if(b.clue[i] >= 0 && b.cstate[i] === 1) k++; }
+  return k;
+}
+
+/* ---------- build a puzzle ---------- */
+function buildSweep(cfg){
+  let p = SWEEP.gen(cfg.seed, cfg.cols, cfg.rows, cfg.density, cfg.tier, 60);
+  // A tier can, very rarely, run out of attempts on a given seed. Falling back
+  // one tier at a time keeps the level playable instead of erroring out.
+  let t = cfg.tier;
+  while(!p && t < 3){ t++; p = SWEEP.gen(cfg.seed ^ (t*0x51ED2701), cfg.cols, cfg.rows, cfg.density, t, 60); }
+  while(!p && t > 1){ t--; p = SWEEP.gen(cfg.seed ^ (t*0x2545F491), cfg.cols, cfg.rows, cfg.density, t, 80); }
+  if(!p) p = SWEEP.gen(cfg.seed ^ 0x7F4A7C15, cfg.cols, cfg.rows, .28, 3, 200);
+  if(!p) return null;
+  p.mode = MODE.SWEEP;
+  p.cstate = new Int8Array(p.cols*p.rows);
+  return p;
+}
+function buildDoku(cfg){
+  // campaign levels ship pre-built and pre-verified; only the daily is made here
+  let p = cfg.data ? DOKU.decode(cfg.data) : DOKU.gen(cfg.seed, cfg.N, cfg.tier, 40);
+  if(!p && !cfg.data){
+    for(let n = cfg.N-1; n >= 5 && !p; n--) p = DOKU.gen(cfg.seed ^ (n*0x51ED2701), n, 1, 40);
+  }
+  if(!p) return null;
+  p.mode = MODE.DOKU;
+  p.ustate = new Int8Array(p.N*3);
+  p.conflict = new Uint8Array(p.N*p.N);
+  p.ghost = new Uint8Array(p.N*p.N);
+  return p;
+}
+function buildPuzzle(cfg){
+  const p = cfg.mode === MODE.DOKU ? buildDoku(cfg) : buildSweep(cfg);
+  if(!p) return null;
+  p.mark = new Int8Array(p.cols*p.rows);
+  p.placed = 0; p.done = false; p.par = cfg.par;
+  return p;
+}
+
+function startLevel(m, lv, daily){
+  isDaily = !!daily;
+  setMode(m);
+  const cfg = daily ? dailyConfig(m) : levelConfig(m, lv);
+  curLevel = daily ? 0 : cfg.level;
+  const p = buildPuzzle(cfg);
+  if(!p) return false;
+  board = p;
+  undoStack = []; pulses = []; hintShow = null; elapsed = 0; hintsUsed = 0; openerShown = false;
+  layoutBoard();
+  refreshBoard();
+  state = ST.PLAY;
+  $('hud-l1').textContent = daily ? 'Daily' : (MODES[m].short + ' lv');
+  hudLevel.textContent = daily ? todayKey().slice(5) : String(cfg.level);
+  hud.hidden = false; pauseBtn.hidden = false; toolBar.hidden = false;
+  setMood(Math.max(board.cols, board.rows) >= 9 ? 'prowl' : 'focus');
+  updateTools();
+  showCoins();
+  return true;
+}
+
+/* ---------- input ---------- */
+function cellAt(px, py){
+  if(!board) return -1;
+  const c = Math.floor((px - BL.x)/BL.cell), r = Math.floor((py - BL.y)/BL.cell);
+  if(c < 0 || c >= board.cols || r < 0 || r >= board.rows) return -1;
+  return r*board.cols + c;
+}
+function setMark(i, m, record){
+  if(record !== false) undoStack.push({ i:i, prev:board.mark[i] });
+  board.mark[i] = m;
+}
+/* Tap toggles the cat; hold blocks. A tap on anything already marked clears it,
+   so getting a square wrong is always one tap back rather than two more steps
+   round a cycle. */
+function tapCell(i, toBlock){
+  if(!board || isFixed(i)){ sfx.bad(); return; }
+  hintShow = null;
+  const cur = board.mark[i];
+  const next = toBlock ? MK.BLOCK : (cur === MK.NONE ? MK.CAT : MK.NONE);
+  if(next === cur) return;                    // holding an existing block
+  setMark(i, next);
+  if(next === MK.CAT) sfx.place();
+  else if(next === MK.BLOCK) sfx.block();
+  else sfx.clear();
+  const before = board.done;
+  const wasSat = satisfiedCount();
+  refreshBoard();
+  if(!before && satisfiedCount() > wasSat) sfx.clue();
+  updateTools();
+  if(board.done) solved();
+}
+
+let ptrDown = null, holdTimer = null, didHold = false;
+function pointerPos(e){
+  const r = cv.getBoundingClientRect();
+  return { x:e.clientX - r.left, y:e.clientY - r.top };
+}
+cv.addEventListener('pointerdown', function(e){
+  audio();
+  if(state !== ST.PLAY) return;
+  const p = pointerPos(e), i = cellAt(p.x, p.y);
+  if(i < 0) return;
+  e.preventDefault();
+  ptrDown = { i:i, x:p.x, y:p.y };
+  didHold = false;
+  clearTimeout(holdTimer);
+  holdTimer = setTimeout(function(){          // hold blocks the square
+    if(!ptrDown) return;
+    didHold = true;
+    tapCell(ptrDown.i, true);
+  }, 340);
+});
+cv.addEventListener('pointerup', function(e){
+  clearTimeout(holdTimer);
+  if(state !== ST.PLAY || !ptrDown) return;
+  const p = pointerPos(e);
+  const moved = Math.abs(p.x-ptrDown.x) > BL.cell*.7 || Math.abs(p.y-ptrDown.y) > BL.cell*.7;
+  if(!didHold && !moved) tapCell(ptrDown.i, false);
+  ptrDown = null;
+});
+cv.addEventListener('pointercancel', function(){ clearTimeout(holdTimer); ptrDown = null; });
+window.addEventListener('keydown', function(e){
+  if(e.key === 'Escape' && state === ST.PLAY){ pauseGame(); }
+  else if(e.key === 'Escape' && state === ST.PAUSE){ resumeGame(); }
+  else if((e.key === 'z' || e.key === 'Z') && state === ST.PLAY) doUndo();
+  else if((e.key === 'h' || e.key === 'H') && state === ST.PLAY) doHint();
+});
+
+/* ---------- tools: undo, hint, reset ---------- */
+function updateTools(){
+  $('tool-undo').disabled = !undoStack.length;
+  // the opener is the only hint that costs nothing, because it is the only one
+  // that gives nothing away
+  const free = openerReady();
+  $('tool-hint').disabled = hints <= 0 && !free;
+  $('hint-n').textContent = free ? 'FREE' : String(hints);
+  const ax = $('tool-autox');
+  ax.hidden = !board || board.mode !== MODE.DOKU;
+  ax.classList.toggle('off', !autoX);
+}
+// on an untouched Catdoku board the hint shows you where to start and why,
+// without filling anything in — so it costs nothing. Only the once, though:
+// a second press has to actually move the puzzle on, or a player who is lost
+// and pressing hint gets the same tip forever.
+function openerReady(){
+  return !!board && !openerShown && board.mode === MODE.DOKU && state === ST.PLAY &&
+         board.mark.every(function(m){ return m === MK.NONE; });
+}
+$('tool-autox').addEventListener('click', function(){
+  autoX = !autoX;
+  try{ localStorage.setItem('catdoku-autox', autoX ? '1' : '0'); }catch(e){}
+  sfx.tap(); updateTools();
+  flash(autoX ? 'AUTO X ON' : 'AUTO X OFF', autoX ? C.cyan : C.inkDim);
+});
+function doUndo(){
+  if(!board || !undoStack.length) return;
+  const u = undoStack.pop();
+  board.mark[u.i] = u.prev;
+  refreshBoard(); updateTools();
+  sfx.clear();
+}
+function addPulse(i, color){ pulses.push({ i:i, t:0, color:color }); }
+function spendHint(){ hints--; hintsUsed++; saveHints(); }
+/* A hint never just hands over an answer at random. First it looks for a cat
+   you have put somewhere it cannot be — that is almost always the real problem.
+   Only if your board is sound does it reveal a tile, and it reveals one the
+   clues already prove, so there is something to learn from it. */
+function doHint(){
+  if(!board || state !== ST.PLAY) return;
+
+  // An untouched Catdoku grid is the hard part: every level has an opening
+  // move, but on half of them it is a set argument nobody spots cold. So point
+  // at the deduction and name it, fill nothing in, and never charge for it.
+  if(openerReady()){
+    const m = DOKU.firstMove(board.N, board.reg, null);
+    if(m){
+      openerShown = true;
+      hintShow = { focus:m.focus, clear:m.clear, t:0 };
+      flash(m.text, C.gold);
+      sfx.hint();
+      return;
+    }
+  }
+
+  if(hints <= 0) return;
+  const b = board, n = b.cols*b.rows;
+  for(let i=0;i<n;i++){
+    if(b.mark[i] === MK.CAT && !b.cats[i]){
+      spendHint(); updateTools();
+      addPulse(i, C.pink); shake = 7; sfx.wrong();
+      flash('NO CAT THERE', C.pink);
+      return;
+    }
+    if(b.mark[i] === MK.BLOCK && b.cats[i]){
+      spendHint(); updateTools();
+      addPulse(i, C.pink); shake = 7; sfx.wrong();
+      flash('A CAT BELONGS THERE', C.pink);
+      return;
+    }
+  }
+  // board is sound: hand back a square the rules already settle, so there is
+  // something to learn from the hint rather than one less square to fill
+  const seed = new Int8Array(n).fill(-1);
+  for(let i=0;i<n;i++){
+    if(b.mark[i] === MK.CAT) seed[i] = 1;
+    else if(b.mark[i] === MK.BLOCK) seed[i] = 0;
+  }
+  const r = b.mode === MODE.DOKU
+    ? DOKU.solve(b.N, b.reg, 3, seed)
+    : SWEEP.solve(b.clue, b.cols, b.rows, 3, seed);
+  const open = function(i){ return !isFixed(i) && b.mark[i] === MK.NONE; };
+  let pick = -1;
+  if(r.ok){
+    for(let i=0;i<n;i++) if(open(i) && r.state[i] === 1){ pick = i; break; }   // a cat is nicer to be given
+    if(pick < 0) for(let i=0;i<n;i++) if(open(i) && r.state[i] === 0){ pick = i; break; }
+  }
+  if(pick < 0){                                  // nothing left to prove
+    for(let i=0;i<n;i++) if(open(i)){ pick = i; break; }
+    if(pick < 0){ flash('NOTHING LEFT TO FIND', C.cyan); return; }
+  }
+  spendHint(); updateTools();
+  setMark(pick, b.cats[pick] ? MK.CAT : MK.BLOCK);
+  addPulse(pick, C.gold);
+  sfx.hint();
+  refreshBoard(); updateTools();
+  if(board.done) solved();
+}
+function doReset(){
+  if(!board) return;
+  const n = board.cols*board.rows;
+  undoStack = []; openerShown = false;
+  for(let i=0;i<n;i++) board.mark[i] = MK.NONE;
+  refreshBoard(); updateTools(); sfx.clear();
+}
+$('tool-undo').addEventListener('click', function(){ audio(); doUndo(); });
+$('tool-hint').addEventListener('click', function(){ audio(); doHint(); });
+$('tool-restart').addEventListener('click', function(){ audio(); doReset(); });
+
+/* ---------- a short banner over the board ---------- */
+let banner = null;
+function flash(text, color){ banner = { text:text, color:color, t:0 }; }
+
+/* ---------- solved ---------- */
+function starsFor(time, par, used){
+  let s = 3;
+  if(used > 0) s--;
+  if(time > par) s--;
+  return Math.max(1, s);
+}
+function fmtTime(sec){
+  sec = Math.max(0, Math.floor(sec));
+  const m = Math.floor(sec/60), s = sec%60;
+  return m+':'+String(s).padStart(2,'0');
+}
+function solved(){
+  if(state !== ST.PLAY) return;
+  state = ST.WIN;
+  const t = Math.floor(elapsed), stars = starsFor(t, board.par, hintsUsed);
+  sfx.win();
+  flashA = 1;
+
+  // coins: bigger grids pay more, stars multiply, repeats pay a quarter
+  const base = 10 + 5*board.cols;
+  const mult = stars === 3 ? 2 : stars === 2 ? 1.5 : 1;
+  const m = board.mode;
+  const book = isDaily ? dailies[m] : scores[m];
+  const key = isDaily ? todayKey() : curLevel;
+  const rec = book[key];
+  const first = !rec;
+  let earn = Math.round(base*mult*(isDaily ? 2 : 1)*(first ? 1 : 0.25) / 5)*5;
+  wallet += earn; saveCoins();
+
+  const bestT = Math.min(t, rec ? rec.time : t);
+  if(!rec || stars > rec.stars || (stars === rec.stars && t < rec.time)) book[key] = { stars:stars, time:t };
+  if(isDaily) saveDailies(m); else saveScores(m);
+
+  $('win-eyebrow').textContent = isDaily ? 'DAILY CAT SOLVED' : (MODES[m].name + ' SOLVED');
+  $('win-stars').innerHTML = [0,1,2].map(function(k){
+    return k < stars ? '★' : '<span class="dim">★</span>';
+  }).join('');
+  $('win-time').textContent = fmtTime(t);
+  $('win-best').textContent = fmtTime(bestT);
+  $('win-coins').textContent = '+'+earn;
+  const flavors = m === MODE.DOKU ? [
+    'One to a row, one to a column, one to a region.',
+    'Every cat found its own corner of the city.',
+    'The grid purrs. You may pet it.',
+    'Not one of them had to share. Rare, for cats.',
+    'Nine lives, zero guesses.',
+  ] : [
+    'Every cat accounted for.',
+    'Not one of them got past you.',
+    'The grid purrs. You may pet it.',
+    'Nine lives, zero guesses.',
+    'They were never really hiding.',
+  ];
+  $('win-flavor').textContent = stars === 3
+    ? 'Clean solve, under par, no hints. Purrfect.'
+    : flavors[Math.floor(Math.random()*flavors.length)];
+  const atEnd = !isDaily && curLevel >= LAST_LEVEL;
+  $('btn-next').textContent = isDaily ? 'BACK TO LEVELS' : atEnd ? 'BACK TO LEVELS' : 'NEXT PUZZLE';
+  hud.hidden = true; pauseBtn.hidden = true; toolBar.hidden = true;
+  showScreen(scrWin);
+  showCoins();
+}
+
+/* ---------- render helpers ---------- */
+// our own rounded rect: roundRect() is new enough that an older WebView may not have it
+function rr(path, x, y, w, h, r){
+  r = Math.min(r, w/2, h/2);
+  path.moveTo(x+r, y);
+  path.lineTo(x+w-r, y); path.quadraticCurveTo(x+w, y, x+w, y+r);
+  path.lineTo(x+w, y+h-r); path.quadraticCurveTo(x+w, y+h, x+w-r, y+h);
+  path.lineTo(x+r, y+h); path.quadraticCurveTo(x, y+h, x, y+h-r);
+  path.lineTo(x, y+r); path.quadraticCurveTo(x, y, x+r, y);
+  path.closePath();
+}
+
+/* ---------- the board ----------
+   Squares are grouped by what they are before anything is drawn: shadowBlur
+   costs a full blur pass per draw call, so a 9x12 grid drawn square by square
+   would spend more than a hundred of them. Grouped, it spends about eight. */
+let blinkAt = 3, blinkUntil = 0;
+// both boards share one blink clock, so the cats all shut their eyes together
+function catBlinking(){
+  if(now > blinkUntil + blinkAt){ blinkUntil = now + 0.16; blinkAt = rand(2.4, 6.5); }
+  return now < blinkUntil;
+}
+
+function drawBoard(){
+  const b = board; if(!b) return;
+  drawBoardPanel(b);
+  if(b.mode === MODE.DOKU) drawDokuBoard(); else drawSweepBoard();
+  drawHintShow();
+  drawPulses();
+}
+// the dark slab both modes stand on, lime once the puzzle is out
+function drawBoardPanel(b){
+  const cell = BL.cell, bw = cell*b.cols, bh = cell*b.rows;
+  const pad = boardGutter;                             // room for the edge pips
+  const panel = new Path2D();
+  rr(panel, BL.x-pad, BL.y-pad, bw+pad*2, bh+pad*2, 12);
+  cx.fillStyle = b.mode === MODE.DOKU ? 'rgba(9,3,22,.9)' : 'rgba(9,3,22,.82)';
+  cx.fill(panel);
+  neon(b.done ? C.lime : C.grid, b.done ? 20 : 12, 1.5);
+  cx.stroke(panel);
+  noGlow();
+}
+// hint and error flares, shared by both modes
+function drawPulses(){
+  const b = board, cell = BL.cell, gap = Math.max(1.4, cell*0.06), rad = cell*0.2;
+  for(let k=0;k<pulses.length;k++){
+    const p = pulses[k], i = p.i;
+    const c = i % b.cols, r = Math.floor(i / b.cols);
+    const a = 1 - p.t/1.1;
+    if(a <= 0) continue;
+    const grow = cell*0.22*(1-a);
+    const path = new Path2D();
+    rr(path, BL.x + c*cell + gap - grow, BL.y + r*cell + gap - grow,
+       cell-gap*2+grow*2, cell-gap*2+grow*2, rad+grow);
+    cx.globalAlpha = a;
+    neon(p.color, 18, 2.6); cx.stroke(path); noGlow();
+    cx.globalAlpha = 1;
+  }
+}
+
+function drawSweepBoard(){
+  const b = board;
+  const cell = BL.cell, gap = Math.max(1.4, cell*0.06), rad = cell*0.2;
+
+  const px = function(c){ return BL.x + c*cell; };
+  const py = function(r){ return BL.y + r*cell; };
+
+  // --- pass 1: open and blocked tiles, one fill each ---
+  const openP = new Path2D(), blockP = new Path2D(), crossP = new Path2D();
+  const clueP = [new Path2D(), new Path2D(), new Path2D()];
+  const catP = new Path2D();
+  for(let r=0;r<b.rows;r++) for(let c=0;c<b.cols;c++){
+    const i = r*b.cols+c, x = px(c)+gap, y = py(r)+gap, s = cell-gap*2;
+    if(b.clue[i] >= 0){ rr(clueP[b.cstate[i]], x, y, s, s, rad); continue; }
+    if(b.mark[i] === MK.CAT){ rr(catP, x, y, s, s, rad); continue; }
+    if(b.mark[i] === MK.BLOCK){
+      rr(blockP, x, y, s, s, rad);
+      const m = s*0.28, cxx = x+s/2, cyy = y+s/2, k = s*0.17;
+      crossP.moveTo(cxx-k, cyy-k); crossP.lineTo(cxx+k, cyy+k);
+      crossP.moveTo(cxx+k, cyy-k); crossP.lineTo(cxx-k, cyy+k);
+      void m;
+      continue;
+    }
+    rr(openP, x, y, s, s, rad);
+  }
+
+  cx.fillStyle = 'rgba(32,15,66,.8)'; cx.fill(openP);
+  cx.strokeStyle = 'rgba(123,47,190,.45)'; cx.lineWidth = 1; cx.stroke(openP);
+
+  cx.fillStyle = 'rgba(11,4,26,.9)'; cx.fill(blockP);
+  cx.strokeStyle = 'rgba(123,47,190,.28)'; cx.stroke(blockP);
+  cx.strokeStyle = 'rgba(150,110,205,.5)'; cx.lineWidth = Math.max(1.6, cell*0.05);
+  cx.lineCap = 'round'; cx.stroke(crossP); cx.lineCap = 'butt';
+
+  // --- pass 2: clue tiles, grouped by state ---
+  const clueCol = [C.cyan, C.lime, C.pink];
+  const clueFill = ['rgba(44,16,78,.95)', 'rgba(32,60,11,.85)', 'rgba(70,11,44,.88)'];
+  for(let s=0;s<3;s++){
+    cx.fillStyle = clueFill[s]; cx.fill(clueP[s]);
+    neon(clueCol[s], s === 0 ? 8 : 14, s === 0 ? 1.2 : 1.8);
+    cx.stroke(clueP[s]);
+    noGlow();
+  }
+
+  // --- pass 3: cat tiles ---
+  const S = curCat();
+  cx.fillStyle = 'rgba(24,10,50,.85)'; cx.fill(catP);
+  neon(S.eye, 12, 1.4); cx.stroke(catP); noGlow();
+
+  // --- pass 4: clue numbers ---
+  cx.textAlign = 'center'; cx.textBaseline = 'middle';
+  cx.font = Math.round(cell*0.46)+"px "+"'Audiowide', 'Segoe UI', Arial, sans-serif";
+  for(let s=0;s<3;s++){
+    cx.fillStyle = clueCol[s];
+    glow(clueCol[s], s === 0 ? 6 : 10);
+    for(let r=0;r<b.rows;r++) for(let c=0;c<b.cols;c++){
+      const i = r*b.cols+c;
+      if(b.clue[i] < 0 || b.cstate[i] !== s) continue;
+      cx.fillText(String(b.clue[i]), px(c)+cell/2, py(r)+cell/2 + cell*0.02);
+    }
+    noGlow();
+  }
+
+  // --- pass 5: the cats themselves ---
+  const blinking = catBlinking();
+  const hue = catData.sel === 'glitch' ? Math.floor(now*4) : 0;
+  const sw = Math.round(cell*0.78), sh = Math.round(sw*(CAT_PIX.length/CAT_PIX[0].length));
+  const spr = catSprite(catData.sel, sw, blinking, hue, false);
+  const sprF = catSprite(catData.sel, sw, blinking, hue, true);
+  if(Q.glow){ cx.shadowColor = S.eye; cx.shadowBlur = 9; }
+  for(let r=0;r<b.rows;r++) for(let c=0;c<b.cols;c++){
+    const i = r*b.cols+c;
+    if(b.clue[i] >= 0 || b.mark[i] !== MK.CAT) continue;
+    cx.drawImage(((r+c)&1) ? sprF : spr,
+      Math.round(px(c)+(cell-sw)/2), Math.round(py(r)+(cell-sh)/2), sw, sh);
+  }
+  noGlow();
+
+}
+
+/* ---------- Catdoku board ----------
+   The regions are the whole interface, so they get real weight: a tinted fill
+   and a thick outline in their own hue, with the square grid drawn thin
+   underneath. Everything is grouped by region before anything is drawn — nine
+   fills and nine strokes instead of one per square. */
+const REGION_HUES = ['#FF2E97','#2DE2FF','#A6FF3F','#FFE23F','#B84FFF',
+                     '#FF9E1F','#43F5C0','#FF6BA8','#7C9BFF'];
+function regionHue(g){ return REGION_HUES[g % REGION_HUES.length]; }
+
+/* P: {ctx, x, y, cell, N, reg, mark, conflict, ustate, skin, glow, pips} */
+function paintDoku(P){
+  const g = P.ctx, N = P.N, cell = P.cell, reg = P.reg;
+  const gap = Math.max(0.8, cell*0.035), rad = cell*0.16;
+  const px = function(c){ return P.x + c*cell; };
+  const py = function(r){ return P.y + r*cell; };
+  const at = function(r, c){ return r*N + c; };
+
+  // --- region tints, one fill per region ---
+  const tint = [], border = [];
+  for(let k=0;k<N;k++){ tint.push(new Path2D()); border.push(new Path2D()); }
+  for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+    const i = at(r,c);
+    tint[reg[i]].rect(px(c), py(r), cell+0.5, cell+0.5);
+    // a boundary edge is one where the neighbour belongs to someone else
+    const gg = border[reg[i]];
+    if(r === 0   || reg[at(r-1,c)] !== reg[i]){ gg.moveTo(px(c), py(r));        gg.lineTo(px(c)+cell, py(r)); }
+    if(r === N-1 || reg[at(r+1,c)] !== reg[i]){ gg.moveTo(px(c), py(r)+cell);   gg.lineTo(px(c)+cell, py(r)+cell); }
+    if(c === 0   || reg[at(r,c-1)] !== reg[i]){ gg.moveTo(px(c), py(r));        gg.lineTo(px(c), py(r)+cell); }
+    if(c === N-1 || reg[at(r,c+1)] !== reg[i]){ gg.moveTo(px(c)+cell, py(r));   gg.lineTo(px(c)+cell, py(r)+cell); }
+  }
+  for(let k=0;k<N;k++){
+    // a region that has found its cat sits a little brighter
+    const done = P.ustate && P.ustate[2*N+k] === 1;
+    g.globalAlpha = done ? 0.2 : 0.115;
+    g.fillStyle = regionHue(k);
+    g.fill(tint[k]);
+  }
+  g.globalAlpha = 1;
+
+  // --- the square grid, thin, under the region outlines ---
+  const fine = new Path2D();
+  for(let k=1;k<N;k++){
+    fine.moveTo(px(k), py(0)); fine.lineTo(px(k), py(N));
+    fine.moveTo(px(0), py(k)); fine.lineTo(px(N), py(k));
+  }
+  g.strokeStyle = 'rgba(123,47,190,.4)'; g.lineWidth = 1; g.stroke(fine);
+
+  // --- squares a placed cat has already ruled out ---
+  if(P.ghosts){
+    const ghostP = new Path2D();
+    const k = cell*0.13;
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+      if(!P.ghost[at(r,c)]) continue;
+      const cxx = px(c)+cell/2, cyy = py(r)+cell/2;
+      ghostP.moveTo(cxx-k, cyy-k); ghostP.lineTo(cxx+k, cyy+k);
+      ghostP.moveTo(cxx+k, cyy-k); ghostP.lineTo(cxx-k, cyy+k);
+    }
+    g.strokeStyle = 'rgba(185,166,217,.26)';
+    g.lineWidth = Math.max(1, cell*0.028);
+    g.lineCap = 'round'; g.stroke(ghostP); g.lineCap = 'butt';
+  }
+
+  // --- blocked squares ---
+  const blockP = new Path2D(), crossP = new Path2D();
+  for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+    const i = at(r,c);
+    if(P.mark[i] !== MK.BLOCK) continue;
+    rr(blockP, px(c)+gap, py(r)+gap, cell-gap*2, cell-gap*2, rad);
+    const k = cell*0.16, cxx = px(c)+cell/2, cyy = py(r)+cell/2;
+    crossP.moveTo(cxx-k, cyy-k); crossP.lineTo(cxx+k, cyy+k);
+    crossP.moveTo(cxx+k, cyy-k); crossP.lineTo(cxx-k, cyy+k);
+  }
+  g.fillStyle = 'rgba(7,2,18,.72)'; g.fill(blockP);
+  g.strokeStyle = 'rgba(150,110,205,.5)'; g.lineWidth = Math.max(1.5, cell*0.05);
+  g.lineCap = 'round'; g.stroke(crossP); g.lineCap = 'butt';
+
+  // --- region outlines, one stroke per region ---
+  for(let k=0;k<N;k++){
+    const done = P.ustate && P.ustate[2*N+k] === 1;
+    const bad  = P.ustate && P.ustate[2*N+k] === 2;
+    const col = bad ? C.pink : regionHue(k);
+    g.strokeStyle = col;
+    g.shadowColor = col;
+    g.shadowBlur = P.glow ? (bad ? 14 : done ? 11 : 6) : 0;
+    g.lineWidth = Math.max(1.8, cell*(bad || done ? 0.075 : 0.06));
+    g.stroke(border[k]);
+  }
+  g.shadowBlur = 0;
+
+  // --- the cats ---
+  const S = CATS[P.skin] || CATS.tabby;
+  const sw = Math.round(cell*0.74), sh = Math.round(sw*(CAT_PIX.length/CAT_PIX[0].length));
+  const hue = P.skin === 'glitch' ? Math.floor(now*4) : 0;
+  const blinking = catBlinking();
+  const spr = catSprite(P.skin, sw, blinking, hue, false);
+  const sprF = catSprite(P.skin, sw, blinking, hue, true);
+  const ring = new Path2D(), badRing = new Path2D();
+  for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+    const i = at(r,c);
+    if(P.mark[i] !== MK.CAT) continue;
+    const bad = P.conflict && P.conflict[i];
+    rr(bad ? badRing : ring, px(c)+gap, py(r)+gap, cell-gap*2, cell-gap*2, rad);
+  }
+  g.fillStyle = 'rgba(16,6,36,.62)'; g.fill(ring); g.fill(badRing);
+  g.strokeStyle = C.ink; g.shadowColor = C.ink; g.shadowBlur = P.glow ? 9 : 0;
+  g.lineWidth = Math.max(1.4, cell*0.045); g.stroke(ring);
+  g.strokeStyle = C.pink; g.shadowColor = C.pink; g.shadowBlur = P.glow ? 16 : 0;
+  g.lineWidth = Math.max(2, cell*0.07); g.stroke(badRing);
+  g.shadowBlur = 0;
+  if(P.glow){ g.shadowColor = S.eye; g.shadowBlur = 8; }
+  for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+    const i = at(r,c);
+    if(P.mark[i] !== MK.CAT) continue;
+    g.drawImage(((r+c)&1) ? sprF : spr,
+      Math.round(px(c)+(cell-sw)/2), Math.round(py(r)+(cell-sh)/2), sw, sh);
+  }
+  g.shadowBlur = 0;
+
+  // --- row and column pips: the running score on the two rules you cannot see
+  //     by looking at one square ---
+  if(P.pips && P.ustate){
+    // clamped so a big cell cannot push a pip out past the gutter
+    const rad2 = clamp(cell*0.075, 2, 6), off = clamp(cell*0.2, 9, 19);
+    for(let k=0;k<N;k++){
+      for(let axis=0; axis<2; axis++){
+        const st = P.ustate[axis*N + k];
+        const col = st === 2 ? C.pink : st === 1 ? C.lime : 'rgba(123,47,190,.55)';
+        g.fillStyle = col;
+        g.shadowColor = col; g.shadowBlur = (P.glow && st) ? 8 : 0;
+        g.beginPath();
+        if(axis === 0) g.arc(P.x - off, py(k) + cell/2, rad2, 0, TAU);      // rows, on the left
+        else           g.arc(px(k) + cell/2, P.y - off, rad2, 0, TAU);      // columns, on top
+        g.fill();
+      }
+    }
+    g.shadowBlur = 0;
+  }
+}
+
+// the outline of an arbitrary set of squares, walked edge by edge
+function cellSetOutline(path, set, N, ox, oy, cell){
+  const inSet = {};
+  for(let k=0;k<set.length;k++) inSet[set[k]] = 1;
+  for(let k=0;k<set.length;k++){
+    const i = set[k], r = Math.floor(i/N), c = i % N;
+    const x = ox + c*cell, y = oy + r*cell;
+    if(r === 0   || !inSet[i-N]){ path.moveTo(x, y);        path.lineTo(x+cell, y); }
+    if(r === N-1 || !inSet[i+N]){ path.moveTo(x, y+cell);   path.lineTo(x+cell, y+cell); }
+    if(c === 0   || !inSet[i-1]){ path.moveTo(x, y);        path.lineTo(x, y+cell); }
+    if(c === N-1 || !inSet[i+1]){ path.moveTo(x+cell, y);   path.lineTo(x+cell, y+cell); }
+  }
+}
+/* The opening hint can cover twenty squares. Twenty pulsing rings is noise, and
+   a tint over an already-neon board is invisible, so instead everything the
+   argument does not involve goes dark: this is why, and that is what it rules
+   out, and nothing else is competing for your eye. */
+function drawHintShow(){
+  if(!hintShow || !board || board.mode !== MODE.DOKU) return;
+  const N = board.N, cell = BL.cell, n = N*N;
+  const life = 5.5;
+  const a = hintShow.t > life ? 0 : hintShow.t < .25 ? hintShow.t/.25 : Math.min(1, (life-hintShow.t)/.8);
+  if(a <= 0){ hintShow = null; return; }
+  const breathe = .78 + .22*Math.sin(now*3.4);
+
+  const inShow = new Uint8Array(n);
+  for(let k=0;k<hintShow.focus.length;k++) inShow[hintShow.focus[k]] = 1;
+  for(let k=0;k<hintShow.clear.length;k++) inShow[hintShow.clear[k]] = 2;
+
+  // everything uninvolved, dimmed
+  const dark = new Path2D();
+  for(let i=0;i<n;i++){
+    if(inShow[i]) continue;
+    dark.rect(BL.x + (i % N)*cell, BL.y + Math.floor(i/N)*cell, cell+0.5, cell+0.5);
+  }
+  cx.globalAlpha = a*0.62;
+  cx.fillStyle = '#07020F';
+  cx.fill(dark);
+  cx.globalAlpha = 1;
+
+  const wash = function(kind, color, alpha){
+    const p = new Path2D();
+    let any = false;
+    for(let i=0;i<n;i++){
+      if(inShow[i] !== kind) continue;
+      any = true;
+      p.rect(BL.x + (i % N)*cell, BL.y + Math.floor(i/N)*cell, cell+0.5, cell+0.5);
+    }
+    if(!any) return;
+    cx.globalAlpha = a*alpha;
+    cx.fillStyle = color;
+    cx.fill(p);
+    cx.globalAlpha = 1;
+  };
+  wash(2, C.cyan, .18);                       // what it rules out
+  wash(1, C.gold, .26*breathe);               // what the argument rests on
+
+  if(hintShow.focus.length){
+    const line = new Path2D();
+    cellSetOutline(line, hintShow.focus, N, BL.x, BL.y, cell);
+    cx.globalAlpha = a*breathe;
+    neon(C.gold, 22, Math.max(2.5, cell*0.1));
+    cx.stroke(line);
+    noGlow();
+    cx.globalAlpha = 1;
+  }
+  // small crosses on the squares the argument takes off the table
+  if(hintShow.clear.length){
+    const xs = new Path2D(), k = cell*0.16;
+    for(let i=0;i<n;i++){
+      if(inShow[i] !== 2) continue;
+      const cxx = BL.x + (i % N)*cell + cell/2, cyy = BL.y + Math.floor(i/N)*cell + cell/2;
+      xs.moveTo(cxx-k, cyy-k); xs.lineTo(cxx+k, cyy+k);
+      xs.moveTo(cxx+k, cyy-k); xs.lineTo(cxx-k, cyy+k);
+    }
+    cx.globalAlpha = a*0.75;
+    cx.strokeStyle = C.cyan; cx.lineWidth = Math.max(1.4, cell*0.045);
+    cx.lineCap = 'round'; cx.stroke(xs); cx.lineCap = 'butt';
+    cx.globalAlpha = 1;
+  }
+}
+
+function drawDokuBoard(){
+  const b = board;
+  paintDoku({ ctx:cx, x:BL.x, y:BL.y, cell:BL.cell, N:b.N, reg:b.reg, mark:b.mark,
+              conflict:b.conflict, ustate:b.ustate, ghost:b.ghost, ghosts:autoX,
+              skin:catData.sel, glow:Q.glow, pips:true });
+}
+
+/* ---------- decorative cats drifting past the sunset, behind the menus ---------- */
+const DRIFT = [];
+function seedDrift(){
+  DRIFT.length = 0;
+  for(let i=0;i<5;i++) DRIFT.push({ x:rand(-0.2,1.2), y:rand(.06,.26), sp:rand(.008,.026), sc:rand(.5,1.1), sk:CAT_ORDER[i % CAT_ORDER.length] });
+}
+seedDrift();
+function drawDrift(){
+  for(let i=0;i<DRIFT.length;i++){
+    const d = DRIFT[i];
+    d.x += d.sp*0.016;
+    if(d.x > 1.25) d.x = -0.25;
+    const size = Math.round(Math.min(W,H)*0.1*d.sc);
+    const spr = catSprite(d.sk, size, false, 0);
+    cx.globalAlpha = .34 + .16*Math.sin(now*.6+i);
+    cx.drawImage(spr, d.x*W, d.y*H + Math.sin(now*.5+i*1.7)*6, size, size*(CAT_PIX.length/CAT_PIX[0].length));
+    cx.globalAlpha = 1;
+  }
+}
+
+/* ---------- main render ---------- */
+function render(){
+  cx.save();
+  if(shake > 0){
+    const s = shake;
+    cx.translate(rand(-s,s), rand(-s,s));
+  }
+  drawBackdrop();
+  if(state === ST.MENU) drawDrift();
+  if(board && (state === ST.PLAY || state === ST.PAUSE || state === ST.WIN)) drawBoard();
+
+  // solve flash
+  if(flashA > 0){
+    cx.fillStyle = 'rgba(166,255,63,'+(flashA*0.3).toFixed(3)+')';
+    cx.fillRect(0,0,W,H);
+  }
+  // banner
+  if(banner){
+    const a = banner.t < 0.2 ? banner.t/0.2 : banner.t > 3.4 ? Math.max(0,(3.9-banner.t)/0.5) : 1;
+    if(a <= 0) banner = null;
+    else{
+      cx.globalAlpha = a;
+      cx.textAlign = 'center'; cx.textBaseline = 'middle';
+      // a "THESE 2 REGIONS ONLY REACH 2 ROWS" has to fit a 320px phone too
+      let fs = Math.round(Math.min(W*0.045, 20));
+      for(; fs > 9; fs--){
+        cx.font = fs+"px 'Audiowide', 'Segoe UI', Arial, sans-serif";
+        if(cx.measureText(banner.text).width <= W - 28) break;
+      }
+      const by = BL.y ? Math.max(84, BL.y - 26) : H*0.2;
+      const tw = cx.measureText(banner.text).width;
+      const plate = new Path2D();
+      rr(plate, W/2 - tw/2 - 12, by - fs*0.85, tw + 24, fs*1.7, 7);
+      cx.fillStyle = 'rgba(8,3,20,.82)';
+      cx.fill(plate);
+      cx.strokeStyle = banner.color; cx.globalAlpha = a*0.5; cx.lineWidth = 1;
+      cx.stroke(plate); cx.globalAlpha = a;
+      cx.fillStyle = banner.color;
+      glow(banner.color, 14);
+      cx.fillText(banner.text, W/2, by);
+      noGlow();
+      cx.globalAlpha = 1;
+    }
+  }
+  cx.restore();
+}
+
+/* ---------- progress helpers ---------- */
+function isSolved(m, lv){ return !!scores[m][lv]; }
+function unlocked(m, lv){ return lv === 1 || isSolved(m, lv-1); }
+function nextLevel(m){
+  for(let lv=1; lv<=LAST_LEVEL; lv++) if(!isSolved(m, lv)) return lv;
+  return LAST_LEVEL;
+}
+function totalStars(m){
+  let s = 0;
+  for(let lv=1; lv<=LAST_LEVEL; lv++) if(scores[m][lv]) s += scores[m][lv].stars;
+  return s;
+}
+function totalSolved(m){
+  let s = 0;
+  for(let lv=1; lv<=LAST_LEVEL; lv++) if(scores[m][lv]) s++;
+  return s;
+}
+function allStars(){ return totalStars('doku') + totalStars('sweep'); }
+function allSolved(){ return totalSolved('doku') + totalSolved('sweep'); }
+function showCoins(){
+  hudCoins.textContent = String(wallet);
+  $('menu-coins').textContent = String(wallet);
+  $('shop-coins').innerHTML = '&#9670; ' + wallet;
+}
+
+/* ---------- mode tabs, shared by level select and how-to-play ---------- */
+function buildModeTabs(id, onPick){
+  const strip = document.getElementById(id);
+  if(!strip) return;
+  strip.innerHTML = '';
+  MODE_ORDER.forEach(function(m){
+    const M = MODES[m];
+    const b = document.createElement('button');
+    b.className = 'mode-tab' + (m === mode ? ' sel' : '');
+    b.innerHTML = M.name + '<span class="sub">' + totalSolved(m) + '/' + LAST_LEVEL +
+                  ' &middot; ' + totalStars(m) + '&#9733;</span>';
+    b.addEventListener('click', function(){
+      if(m === mode) return;
+      sfx.tap(); setMode(m); onPick();
+    });
+    strip.appendChild(b);
+  });
+}
+
+/* ---------- level select ---------- */
+let selZone = 0;
+function zoneUnlocked(z){ return z === 0 || unlocked(mode, z*PER_ZONE + 1); }
+function buildZones(){
+  const strip = $('zone-strip');
+  strip.innerHTML = '';
+  zonesOf(mode).forEach(function(z, i){
+    const b = document.createElement('button');
+    b.className = 'zone-tab' + (i === selZone ? ' sel' : '') + (zoneUnlocked(i) ? '' : ' locked');
+    let got = 0;
+    for(let k=1;k<=PER_ZONE;k++) if(isSolved(mode, i*PER_ZONE+k)) got++;
+    b.textContent = (zoneUnlocked(i) ? '' : '● ') + z.name + ' ' + got + '/' + PER_ZONE;
+    b.addEventListener('click', function(){
+      if(!zoneUnlocked(i)){ sfx.bad(); return; }
+      selZone = i; sfx.tap(); buildZones(); buildLevels();
+    });
+    strip.appendChild(b);
+  });
+}
+function buildLevels(){
+  const z = zonesOf(mode)[selZone];
+  $('zone-name').textContent = z.name;
+  $('zone-desc').textContent = z.desc + '  ·  ' + zoneGrid(mode, selZone) + ' grid';
+  const g = $('lvl-grid');
+  g.innerHTML = '';
+  const nxt = nextLevel(mode);
+  for(let k=1;k<=PER_ZONE;k++){
+    const lv = selZone*PER_ZONE + k;
+    const rec = scores[mode][lv], open = unlocked(mode, lv);
+    const b = document.createElement('button');
+    b.className = 'lvl' + (rec ? ' done' : '') + (!open ? ' locked' : (lv === nxt ? ' next' : ''));
+    b.innerHTML = '<span>' + lv + '</span><span class="stars">' +
+      (rec ? '★'.repeat(rec.stars) : (open ? '' : '·  ·  ·')) + '</span>';
+    if(open) b.addEventListener('click', function(){ sfx.tap(); playLevel(mode, lv); });
+    else b.disabled = true;
+    g.appendChild(b);
+  }
+}
+function openLevels(){
+  selZone = Math.min(zonesOf(mode).length-1, Math.floor((nextLevel(mode)-1)/PER_ZONE));
+  $('mode-blurb').textContent = MODES[mode].blurb;
+  buildModeTabs('mode-strip', function(){ openLevels(); });
+  buildZones(); buildLevels();
+  showScreen(scrLevels);
+}
+
+/* ---------- the cattery ---------- */
+const HINT_PACKS = [ {n:3, price:60}, {n:10, price:180}, {n:25, price:400} ];
+function buildShop(){
+  const list = $('cat-list');
+  list.innerHTML = '';
+  CAT_ORDER.forEach(function(key){
+    const S = CATS[key], owned = catData.owned.indexOf(key) >= 0, sel = catData.sel === key;
+    const card = document.createElement('div');
+    card.className = 'cat-card' + (sel ? ' sel' : '');
+    const c = document.createElement('canvas');
+    c.width = 52; c.height = 52;
+    const g = c.getContext('2d');
+    const spr = catSprite(key, 44, false, key === 'glitch' ? 1 : 0);
+    g.drawImage(spr, 4, 3, 44, 44*(CAT_PIX.length/CAT_PIX[0].length));
+    card.appendChild(c);
+    const info = document.createElement('div');
+    info.className = 'cat-info';
+    info.innerHTML = '<div class="cat-name" style="color:'+S.eye+'">'+S.name+'</div>' +
+                     '<div class="cat-desc">'+S.desc+'</div>';
+    card.appendChild(info);
+    const btn = document.createElement('button');
+    btn.className = 'cat-btn' + (owned ? '' : ' buy');
+    if(sel){ btn.textContent = 'IN USE'; btn.disabled = true; }
+    else if(owned){ btn.textContent = 'USE'; }
+    else { btn.innerHTML = '&#9670; ' + S.price; btn.disabled = wallet < S.price; }
+    btn.addEventListener('click', function(){
+      if(owned){ catData.sel = key; saveCatData(); sfx.tap(); }
+      else if(wallet >= S.price){
+        wallet -= S.price; saveCoins();
+        catData.owned.push(key); catData.sel = key; saveCatData();
+        sfx.buy();
+      }else{ sfx.bad(); return; }
+      buildShop(); showCoins();
+    });
+    card.appendChild(btn);
+    list.appendChild(card);
+  });
+  const hs = $('hint-shop');
+  hs.innerHTML = '';
+  HINT_PACKS.forEach(function(p){
+    const b = document.createElement('button');
+    b.className = 'sup-btn';
+    b.disabled = wallet < p.price;
+    b.innerHTML = '<span class="sup-ico">&#9788;</span><span class="sup-name">'+p.n+' HINTS</span>' +
+                  '<span class="sup-price">&#9670; '+p.price+'</span>';
+    b.addEventListener('click', function(){
+      if(wallet < p.price){ sfx.bad(); return; }
+      wallet -= p.price; hints += p.n;
+      saveCoins(); saveHints(); sfx.buy();
+      buildShop(); showCoins(); updateTools();
+    });
+    hs.appendChild(b);
+  });
+  const have = document.createElement('p');
+  have.className = 'cat-desc';
+  have.style.width = '100%';
+  have.style.textAlign = 'center';
+  have.textContent = 'YOU HAVE ' + hints + ' HINT' + (hints === 1 ? '' : 'S');
+  hs.appendChild(have);
+}
+
+/* ---------- how-to-play diagram ----------
+   Three cats around a 3, drawn with the same tiles as the real board so the
+   rule is shown rather than described. */
+function drawRuleDemo(){
+  const c = $('rule-demo'), g = c.getContext('2d');
+  const cols = 5, rows = 3, cell = Math.floor(Math.min(c.width/cols, c.height/rows));
+  const ox = Math.round((c.width - cell*cols)/2), oy = Math.round((c.height - cell*rows)/2);
+  const gap = cell*0.06, rad = cell*0.2;
+  g.clearRect(0,0,c.width,c.height);
+  const clueIdx = 7;                            // row 1, col 2 of the 5x3
+  const catAt = { 1:1, 6:1, 13:1 };             // three of the eight tiles touching it
+  for(let r=0;r<rows;r++) for(let i2=0;i2<cols;i2++){
+    const idx = r*cols+i2, x = ox+i2*cell+gap, y = oy+r*cell+gap, s = cell-gap*2;
+    const p = new Path2D(); rr(p, x, y, s, s, rad);
+    if(idx === clueIdx){
+      g.fillStyle = 'rgba(30,58,10,.72)'; g.fill(p);
+      g.strokeStyle = C.lime; g.shadowColor = C.lime; g.shadowBlur = 14; g.lineWidth = 2;
+      g.stroke(p); g.shadowBlur = 0;
+      g.fillStyle = C.lime; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.font = Math.round(cell*0.5)+"px 'Audiowide', 'Segoe UI', Arial, sans-serif";
+      g.fillText('3', x+s/2, y+s/2+cell*0.02);
+    }else if(catAt[idx]){
+      g.fillStyle = 'rgba(24,10,50,.85)'; g.fill(p);
+      g.strokeStyle = curCat().eye; g.lineWidth = 1.4; g.stroke(p);
+      const sw = Math.round(cell*0.76), sh = Math.round(sw*(CAT_PIX.length/CAT_PIX[0].length));
+      g.drawImage(catSprite(catData.sel, sw, false, 0), Math.round(x+(s-sw)/2), Math.round(y+(s-sh)/2), sw, sh);
+    }else{
+      g.fillStyle = 'rgba(30,14,62,.62)'; g.fill(p);
+      g.strokeStyle = 'rgba(123,47,190,.45)'; g.lineWidth = 1; g.stroke(p);
+    }
+  }
+  // ring the eight tiles the clue is talking about
+  g.strokeStyle = 'rgba(45,226,255,.75)';
+  g.setLineDash([6,5]); g.lineWidth = 1.6;
+  const rx = ox + cell*1 + gap*0.5, ry = oy + gap*0.5;
+  g.strokeRect(rx, ry, cell*3-gap, cell*3-gap);
+  g.setLineDash([]);
+}
+
+/* The Catdoku diagram is not a drawing of a puzzle — it is level 1, solved,
+   painted by the same code as the real board. It cannot drift out of date. */
+function drawDokuDemo(){
+  const c = $('doku-demo');
+  if(!c || !DOKU_LEVELS.length) return;
+  const g = c.getContext('2d');
+  g.clearRect(0, 0, c.width, c.height);
+  const p = DOKU.decode(DOKU_LEVELS[0]);
+  const cell = Math.floor((c.width - 80) / p.N);    // 40px of gutter each side for the pips
+  const off = Math.round((c.width - cell*p.N)/2);
+  const ustate = new Int8Array(p.N*3).fill(1);       // solved, so everything is lime
+  paintDoku({ ctx:g, x:off, y:off, cell:cell, N:p.N, reg:p.reg, mark:p.cats,
+              conflict:null, ustate:ustate, skin:catData.sel, glow:true, pips:true });
+}
+function showHelp(){
+  $('help-doku').hidden = mode !== MODE.DOKU;
+  $('help-sweep').hidden = mode !== MODE.SWEEP;
+  buildModeTabs('help-mode-strip', function(){ showHelp(); });
+  if(mode === MODE.DOKU) drawDokuDemo(); else drawRuleDemo();
+}
+
+/* ---------- flow ---------- */
+function playLevel(m, lv){
+  [scrLevels, scrStart, scrWin, scrShop, scrHelp].forEach(hideScreen);
+  if(!startLevel(m, lv, false)) flash('COULD NOT BUILD THAT ONE', C.pink);
+  startMusic();
+}
+function playDaily(m){
+  [scrLevels, scrStart, scrWin, scrShop, scrHelp].forEach(hideScreen);
+  if(!startLevel(m, 0, true)) flash('COULD NOT BUILD THAT ONE', C.pink);
+  startMusic();
+}
+function showMenu(){
+  state = ST.MENU;
+  board = null;
+  hud.hidden = true; pauseBtn.hidden = true; toolBar.hidden = true;
+  // The menu is deliberately quiet — the music belongs to the game, not the
+  // front door. It starts when a puzzle does, same as the shooter.
+  setMood('lounge');
+  const nxt = nextLevel(mode);
+  $('btn-continue').textContent = MODES[mode].name + ' · ' +
+    (isSolved(mode, LAST_LEVEL) ? 'REPLAY ' : 'LEVEL ') + nxt;
+  $('menu-solved').textContent = allSolved() + '/' + (LAST_LEVEL*2);
+  $('menu-stars').textContent = String(allStars());
+  $('btn-reset').hidden = allSolved() === 0 && wallet === 0;
+  const d = dailies[mode][todayKey()];
+  $('btn-daily').textContent = d ? 'DAILY ★'+d.stars : 'DAILY CAT';
+  showCoins();
+  [scrLevels, scrWin, scrShop, scrHelp, scrPause].forEach(hideScreen);
+  showScreen(scrStart);
+}
+function toMenu(){
+  [scrLevels, scrWin, scrShop, scrHelp, scrPause].forEach(hideScreen);
+  showMenu();
+}
+
+/* ---------- pause ---------- */
+function pauseGame(){
+  if(state !== ST.PLAY) return;
+  state = ST.PAUSE;
+  toolBar.hidden = true; pauseBtn.hidden = true;
+  showScreen(scrPause);
+}
+function resumeGame(){
+  if(state !== ST.PAUSE) return;
+  hideScreen(scrPause);
+  state = ST.PLAY;
+  toolBar.hidden = false; pauseBtn.hidden = false;
+}
+pauseBtn.addEventListener('click', function(){ audio(); pauseGame(); });
+$('btn-resume').addEventListener('click', function(){ sfx.tap(); resumeGame(); });
+$('btn-quit').addEventListener('click', function(){ sfx.tap(); hideScreen(scrPause); showMenu(); openLevels(); });
+
+/* ---------- menu wiring ---------- */
+$('btn-continue').addEventListener('click', function(){ audio(); sfx.tap(); playLevel(mode, nextLevel(mode)); });
+$('btn-levels').addEventListener('click', function(){ audio(); sfx.tap(); hideScreen(scrStart); openLevels(); });
+$('btn-daily').addEventListener('click', function(){ audio(); sfx.tap(); playDaily(mode); });
+$('btn-cattery').addEventListener('click', function(){ audio(); sfx.tap(); hideScreen(scrStart); buildShop(); showCoins(); showScreen(scrShop); });
+$('btn-help').addEventListener('click', function(){ audio(); sfx.tap(); hideScreen(scrStart); showHelp(); showScreen(scrHelp); });
+$('btn-help-back').addEventListener('click', function(){ sfx.tap(); hideScreen(scrHelp); showMenu(); });
+$('btn-levels-back').addEventListener('click', function(){ sfx.tap(); hideScreen(scrLevels); showMenu(); });
+$('btn-shop-back').addEventListener('click', function(){ sfx.tap(); hideScreen(scrShop); showMenu(); });
+$('btn-win-levels').addEventListener('click', function(){ sfx.tap(); hideScreen(scrWin); showMenu(); openLevels(); });
+$('btn-replay').addEventListener('click', function(){ sfx.tap(); hideScreen(scrWin); isDaily ? playDaily(mode) : playLevel(mode, curLevel); });
+$('btn-next').addEventListener('click', function(){
+  sfx.tap(); hideScreen(scrWin);
+  if(isDaily || curLevel >= LAST_LEVEL){ showMenu(); openLevels(); }
+  else playLevel(mode, curLevel+1);
+});
+$('btn-reset').addEventListener('click', function(){
+  if(!confirm('Reset all progress, coins and cats? This cannot be undone.')) return;
+  ['catdoku-sc-doku','catdoku-sc-sweep','catdoku-dy-doku','catdoku-dy-sweep',
+   'catdoku-coins','catdoku-hints','catdoku-cats','catdoku-mode'].forEach(function(k){
+    try{ localStorage.removeItem(k); }catch(e){}
+  });
+  scores = { doku:{}, sweep:{} }; dailies = { doku:{}, sweep:{} };
+  wallet = 0; hints = 3; catData = { owned:['tabby'], sel:'tabby' };
+  showMenu();
+});
+
+/* ---------- the coffee link ----------
+   Not every host will let a page open a tab: a sandboxed frame (an artifact
+   preview, an embed) blocks window.open outright, and some in-app webviews do
+   too. Opening it by hand keeps the normal case working and, where it is
+   refused, turns the button into the address itself rather than leaving a
+   control that does nothing when tapped. */
+(function(){
+  const link = document.querySelector('.donate');
+  if(!link) return;
+  const url = link.href;
+  link.addEventListener('click', function(e){
+    e.preventDefault();
+    // Passing 'noopener' in the feature string makes window.open return null by
+    // spec, which is indistinguishable from being blocked — so ask for the
+    // window, then sever the reference ourselves.
+    let win = null;
+    try{ win = window.open(url, '_blank'); }catch(err){}
+    if(win){ try{ win.opener = null; }catch(err){} return; }
+    link.classList.add('blocked');
+    link.textContent = '\u2615 ' + url.replace(/^https?:\/\//, '');
+    link.title = url;
+  });
+})();
+
+/* ---------- main loop ---------- */
+resize();
+updateGfxBtn();
+updateTools();
+showMenu();
+if(document.fonts){                        // canvas text needs the face ready
+  document.fonts.load("12px 'Audiowide'");
+  document.fonts.load("12px 'Righteous'");
+  document.fonts.load("12px 'Mr Dafoe'");
+}
+let lastT = performance.now();
+const FRAME_MS = 1000/60 - 1.5;    // 120Hz panels otherwise render twice the frames for nothing
+const IDLE_MS  = 1000/30 - 1.5;    // a puzzle is not an action game; half the frames will do
+let lastDraw = -1e9, slowAcc = 0, slowN = 0, tick = 0;
+function frame(tms){
+  requestAnimationFrame(frame);
+  // only the board's idle shimmer moves while solving, so 30fps everywhere but
+  // the first moments after an input is plenty and saves a lot of battery
+  const cap = (state === ST.PLAY && tms - lastInput < 400) ? FRAME_MS : IDLE_MS;
+  if(tms - lastDraw < cap) return;
+  lastDraw = tms;
+  const dt = Math.min(.05, (tms-lastT)/1000); lastT = tms;
+  now += dt;
+  if(state === ST.PLAY){
+    elapsed += dt;
+    if(++tick % 8 === 0) hudTime.textContent = fmtTime(elapsed);
+  }
+  shake = Math.max(0, shake - 30*dt);   // decays in every state, so overlays never sit on a jittering canvas
+  flashA = Math.max(0, flashA - dt*1.4);
+  for(let k=pulses.length-1;k>=0;k--){
+    pulses[k].t += dt;
+    if(pulses[k].t > 1.1) pulses.splice(k,1);
+  }
+  if(banner) banner.t += dt;
+  if(hintShow) hintShow.t += dt;
+  render();
+  // if the device cannot hold the pace, shed the expensive effects once
+  if(qPref === 'auto' && qTier === 'high'){
+    slowAcc += dt; slowN++;
+    if(slowN >= 120){
+      const avg = slowAcc/slowN; slowAcc = 0; slowN = 0;
+      if(avg > 0.05) setTier('low');      // sustained under ~20fps at the 30fps cap
+    }
+  }
+}
+let lastInput = -1e9;
+['pointerdown','pointerup','pointermove'].forEach(function(ev){
+  cv.addEventListener(ev, function(){ lastInput = performance.now(); }, {passive:true});
+});
+requestAnimationFrame(frame);
+document.addEventListener('visibilitychange', function(){
+  lastT = performance.now();
+  if(document.hidden){
+    if(state === ST.PLAY) pauseGame();
+    stopMusic(); if(AC) AC.suspend();
+  }else if(!musicOff){
+    if(AC) AC.resume();
+    startMusic();
+  }
+});
+</script>
+</body>
+</html>

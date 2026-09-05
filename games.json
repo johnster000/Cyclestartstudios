@@ -1,9 +1,23 @@
 [
   {
-    "slug": "pong",
-    "title": "Pong",
-    "description": "Classic paddle game. Beat the CPU to 5. Starter example showing how a game is added to the site.",
-    "thumbnail": "games/pong/thumb.svg",
-    "controls": "Mouse / touch to move. Space to start."
+    "slug": "neon-horde",
+    "title": "Neon Horde",
+    "description": "A synthwave lane-runner horde shooter. Steer your squad, pump bullets into math gates to grow it, and hold the line against endless waves. No ads, no purchases, no timers.",
+    "thumbnail": "games/neon-horde/thumb.png",
+    "controls": "Drag or use arrow keys to steer. Tap power-ups on the belt to fire them."
+  },
+  {
+    "slug": "catdoku",
+    "title": "Catdoku",
+    "description": "Two synthwave logic puzzles on one neon grid. Place exactly one cat in every row, column and region, or sweep for hidden cats in Catsweeper. Honest puzzles, free hints on the opening move.",
+    "thumbnail": "games/catdoku/thumb.png",
+    "controls": "Tap to place a cat, hold to block a square."
+  },
+  {
+    "slug": "pocket-dungeons",
+    "title": "Pocket Dungeons",
+    "description": "A cozy turn-based isometric pixel-art RPG. Create a hero, wake up in a tavern with no memory, recruit companions and roll dice through a procedurally generated dungeon in about twenty minutes.",
+    "thumbnail": "games/pocket-dungeons/thumb.png",
+    "controls": "Mouse and keyboard, or touch with the on-screen d-pad."
   }
 ]
