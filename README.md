@@ -62,11 +62,16 @@ re-capture the thumbnail (below) if the title screen changed.
 
 ## One-time setup
 
-Deploys run from `.github/workflows/pages.yml` on every push to `main`. The first run enables GitHub Pages
-and sets the custom domain by itself. Two things still need a human:
+Deploys run from `.github/workflows/pages.yml` on every push to `main`. The first successful run enables
+GitHub Pages and sets the custom domain by itself. Three things still need a human:
 
-1. **Default branch.** On GitHub go to **Settings → General → Default branch** and switch it to `main`.
-2. **DNS.** At your domain registrar add these records:
+1. **Make the repo public.** GitHub Pages on a private repo needs a paid plan; on a free account the
+   workflow fails at "Enable Pages" with *Resource not accessible by integration*. Go to
+   **Settings → General → Danger Zone → Change repository visibility → Make public**, then re-run the
+   workflow from the **Actions** tab (or push any commit to `main`). Everything in this repo is already
+   served to every visitor's browser once the site is live, so making it public exposes nothing extra.
+2. **Default branch.** On GitHub go to **Settings → General → Default branch** and switch it to `main`.
+3. **DNS.** At your domain registrar add these records:
 
    | Type  | Host | Value |
    |-------|------|-------|
