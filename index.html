@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cycle Start Studios</title>
+  <meta name="description" content="Games by Cycle Start Studios. Play free in your browser.">
+  <link rel="icon" type="image/png" href="assets/logo.png">
+  <meta property="og:title" content="Cycle Start Studios">
+  <meta property="og:description" content="Games by Cycle Start Studios. Play free in your browser.">
+  <meta property="og:image" content="https://cyclestartstudios.com/assets/logo.png">
+  <style>
+    :root {
+      --bg: #000;
+      --panel: #0e0e0e;
+      --border: #222;
+      --text: #f2f2f2;
+      --muted: #9a9a9a;
+      --accent: #7ac943;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; background: var(--bg); color: var(--text);
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+    a { color: inherit; text-decoration: none; }
+    header { text-align: center; padding: 3rem 1rem 1rem; }
+    header img { width: min(320px, 70vw); height: auto; display: block; margin: 0 auto; }
+    header p { color: var(--muted); margin: 0.5rem 0 0; letter-spacing: 0.08em; text-transform: uppercase; font-size: 0.85rem; }
+    main { max-width: 1100px; margin: 0 auto; padding: 2rem 1rem 4rem; }
+    h2 { font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; font-size: 0.95rem;
+      color: var(--accent); border-bottom: 1px solid var(--border); padding-bottom: 0.6rem; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1.25rem; margin-top: 1.5rem; }
+    .card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; overflow: hidden;
+      display: flex; flex-direction: column; transition: transform .15s ease, border-color .15s ease; }
+    .card:hover { transform: translateY(-3px); border-color: var(--accent); }
+    .card img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; background: #111; display: block; }
+    .card .body { padding: 1rem; display: flex; flex-direction: column; gap: 0.4rem; flex: 1; }
+    .card h3 { margin: 0; font-size: 1.1rem; }
+    .card p { margin: 0; color: var(--muted); font-size: 0.92rem; line-height: 1.4; flex: 1; }
+    .card .controls { font-size: 0.8rem; color: var(--accent); }
+    .card .play { margin-top: 0.6rem; align-self: flex-start; background: var(--accent); color: #000;
+      font-weight: 700; padding: 0.45rem 1rem; border-radius: 999px; font-size: 0.85rem; }
+    .empty { color: var(--muted); text-align: center; padding: 3rem 1rem; border: 1px dashed var(--border); border-radius: 12px; }
+    footer { text-align: center; color: var(--muted); font-size: 0.8rem; padding: 2rem 1rem; border-top: 1px solid var(--border); }
+  </style>
+</head>
+<body>
+  <header>
+    <img src="assets/logo.png" alt="Cycle Start Studios">
+    <p>Play free in your browser</p>
+  </header>
+
+  <main>
+    <h2>Games</h2>
+    <div id="games" class="grid" aria-live="polite"></div>
+  </main>
+
+  <footer>&copy; <span id="year"></span> Cycle Start Studios</footer>
+
+  <script>
+    document.getElementById('year').textContent = new Date().getFullYear();
+
+    fetch('games.json', { cache: 'no-cache' })
+      .then(r => r.json())
+      .then(games => {
+        const grid = document.getElementById('games');
+        if (!games.length) {
+          grid.outerHTML = '<div class="empty">No games yet. Check back soon.</div>';
+          return;
+        }
+        for (const g of games) {
+          const a = document.createElement('a');
+          a.className = 'card';
+          a.href = 'games/' + g.slug + '/';
+          a.innerHTML = `
+            <img src="${g.thumbnail || 'assets/logo.png'}" alt="" loading="lazy">
+            <div class="body">
+              <h3></h3>
+              <p></p>
+              <span class="controls"></span>
+              <span class="play">Play</span>
+            </div>`;
+          a.querySelector('h3').textContent = g.title;
+          a.querySelector('p').textContent = g.description || '';
+          a.querySelector('.controls').textContent = g.controls || '';
+          grid.appendChild(a);
+        }
+      })
+      .catch(() => {
+        document.getElementById('games').outerHTML =
+          '<div class="empty">Could not load the game list.</div>';
+      });
+  </script>
+</body>
+</html>

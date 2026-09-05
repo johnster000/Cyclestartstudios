@@ -1,0 +1,9 @@
+[
+  {
+    "slug": "pong",
+    "title": "Pong",
+    "description": "Classic paddle game. Beat the CPU to 5. Starter example showing how a game is added to the site.",
+    "thumbnail": "games/pong/thumb.svg",
+    "controls": "Mouse / touch to move. Space to start."
+  }
+]
