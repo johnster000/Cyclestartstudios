@@ -62,20 +62,16 @@ re-capture the thumbnail (below) if the title screen changed.
 
 ## One-time setup
 
-Deploys run from `.github/workflows/pages.yml` on every push to `main`. The first successful run enables
-GitHub Pages and sets the custom domain by itself. Three things still need a human:
+GitHub Pages serves the `gh-pages` branch. `.github/workflows/pages.yml` mirrors `main` into `gh-pages` on
+every push, so `main` is the only branch anyone edits. Pushing `gh-pages` was enough to switch Pages on by
+itself, so nothing in **Settings → Pages** needs changing. The CNAME file sets the custom domain.
 
-1. **Make the repo public and turn Pages on.** GitHub Pages on a private repo needs a paid plan, and the
-   workflow token is not allowed to create the Pages site by itself (it fails with *Resource not accessible
-   by integration*). So, once:
-   - **Settings → General → Danger Zone → Change repository visibility → Make public.**
-   - **Settings → Pages → Build and deployment → Source → GitHub Actions.** No branch or folder to pick.
-   - **Actions tab → Deploy to GitHub Pages → Run workflow** on `main` (or push any commit to `main`).
-   Everything in this repo is already served to every visitor's browser once the site is live, so making
-   it public exposes nothing extra.
-2. **Default branch.** On GitHub go to **Settings → Branches**. At the top, under **Default branch**, click the
-   swap-arrows icon next to the current name, pick `main`, and confirm.
-3. **DNS.** At your domain registrar add these records:
+Already done: the repo is public (GitHub Pages on a private repo needs a paid plan; everything here is
+served to every visitor's browser anyway, so public exposes nothing extra) and `main` is the default branch.
+
+Still to do, once:
+
+1. **DNS.** At your domain registrar add these records:
 
    | Type  | Host | Value |
    |-------|------|-------|
@@ -85,8 +81,8 @@ GitHub Pages and sets the custom domain by itself. Three things still need a hum
    | A     | @    | 185.199.111.153 |
    | CNAME | www  | johnster000.github.io |
 
-   Then under **Settings → Pages** confirm the custom domain shows a green check and tick **Enforce HTTPS**
-   once the certificate is issued (up to an hour after DNS propagates).
+2. **HTTPS.** Once DNS has propagated, open **Settings → Pages**, confirm the custom domain shows a green
+   check, and tick **Enforce HTTPS** (the certificate can take up to an hour to issue).
 
 Until DNS is in place the site is live at https://johnster000.github.io/Cyclestartstudios/.
 

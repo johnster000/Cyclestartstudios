@@ -1,4 +1,8 @@
-name: Deploy to GitHub Pages
+name: Publish to GitHub Pages
+
+# GitHub Pages serves the gh-pages branch. This mirrors main into it on every push,
+# so main stays the only branch anyone edits. Pages then builds automatically and
+# picks up the custom domain from the CNAME file.
 
 on:
   push:
@@ -6,41 +10,18 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
   group: pages
   cancel-in-progress: true
 
 jobs:
-  deploy:
+  mirror:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
-
-      - name: Enable Pages (no-op once enabled)
-        uses: actions/configure-pages@v5
         with:
-          enablement: true
-
-      - name: Set custom domain
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh api -X PUT "repos/${{ github.repository }}/pages" \
-            -f cname="$(tr -d '[:space:]' < CNAME)" -F https_enforced=true \
-            || echo "::warning::Could not set custom domain automatically. Set it under Settings > Pages."
-
-      - name: Upload site
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: .
-
-      - name: Deploy
-        id: deployment
-        uses: actions/deploy-pages@v4
+          fetch-depth: 0
+      - name: Push main to gh-pages
+        run: git push --force origin HEAD:gh-pages
