@@ -62,10 +62,11 @@ re-capture the thumbnail (below) if the title screen changed.
 
 ## One-time setup
 
-1. In this repo on GitHub: **Settings → Pages**, set Source to **Deploy from a branch**, branch `main`, folder `/ (root)`.
-2. Under **Custom domain** enter `cyclestartstudios.com` and save. Tick **Enforce HTTPS** once the certificate is issued
-   (can take up to an hour).
-3. At your domain registrar add these DNS records:
+Deploys run from `.github/workflows/pages.yml` on every push to `main`. The first run enables GitHub Pages
+and sets the custom domain by itself. Two things still need a human:
+
+1. **Default branch.** On GitHub go to **Settings → General → Default branch** and switch it to `main`.
+2. **DNS.** At your domain registrar add these records:
 
    | Type  | Host | Value |
    |-------|------|-------|
@@ -75,7 +76,10 @@ re-capture the thumbnail (below) if the title screen changed.
    | A     | @    | 185.199.111.153 |
    | CNAME | www  | johnster000.github.io |
 
-4. Also add `www.cyclestartstudios.com` as an alternate in the GitHub Pages settings if you want `www` to redirect.
+   Then under **Settings → Pages** confirm the custom domain shows a green check and tick **Enforce HTTPS**
+   once the certificate is issued (up to an hour after DNS propagates).
+
+Until DNS is in place the site is live at https://johnster000.github.io/Cyclestartstudios/.
 
 ## Local preview
 
