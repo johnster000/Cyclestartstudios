@@ -62,14 +62,25 @@ re-capture the thumbnail (below) if the title screen changed.
 
 ## One-time setup
 
-`.github/workflows/pages.yml` publishes the site on every push to `main`. It reads the Pages configuration
-and adapts: if the Pages source is **GitHub Actions** it deploys the repo as a Pages artifact; if the source
-is a **branch** it force-pushes `main` to `gh-pages` for Pages to build. `main` is the only branch anyone
-edits either way.
+`.github/workflows/pages.yml` publishes the site. It reads the Pages configuration and adapts: with the
+Pages source set to **GitHub Actions** it deploys the repo as a Pages artifact; with the source set to a
+**branch** it force-pushes `main` into that branch for Pages to build.
 
 Already done: the repo is public (GitHub Pages on a private repo needs a paid plan; everything here is
 served to every visitor's browser anyway, so public exposes nothing extra), `main` is the default branch,
-and Pages is switched on.
+Pages is on with the source set to GitHub Actions, and the custom domain `cyclestartstudios.com` is set.
+
+### Why deploys currently run from `claude/cyclestart-free-hosting-wwn877`
+
+Pages was enabled while that branch was still the repo's default, so GitHub's `github-pages` deployment
+environment only accepts deploys from it. Pushes to `main` are rejected before any step runs. The workflow
+therefore deploys from that branch, and it is kept identical to `main`. To publish straight from `main`,
+do **one** of these once, in a desktop browser or a phone browser with "desktop site" on:
+
+- **Settings → Pages → Build and deployment → Source → Deploy from a branch**, branch `main`, folder
+  `/ (root)`, Save. Simplest. The workflow then does nothing on push and Pages builds `main` directly.
+- Or **Settings → Environments → github-pages → Deployment branches and tags**: change the rule to
+  `main` (or "No restriction"). The workflow then deploys from `main` in GitHub Actions mode.
 
 Still to do, once:
 
@@ -83,10 +94,8 @@ Still to do, once:
    | A     | @    | 185.199.111.153 |
    | CNAME | www  | johnster000.github.io |
 
-2. **Custom domain and HTTPS.** Open **Settings → Pages**. If *Custom domain* is empty, enter
-   `cyclestartstudios.com` and save (the workflow tries to do this itself, but may lack permission). Once
-   DNS has propagated and the domain shows a green check, tick **Enforce HTTPS** (the certificate can take
-   up to an hour to issue).
+2. **HTTPS.** Once DNS has propagated and **Settings → Pages** shows a green check next to the domain,
+   tick **Enforce HTTPS** (the certificate can take up to an hour to issue).
 
 Until DNS is in place the site is live at https://johnster000.github.io/Cyclestartstudios/.
 

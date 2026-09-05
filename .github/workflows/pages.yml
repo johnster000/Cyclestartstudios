@@ -1,13 +1,17 @@
 name: Publish to GitHub Pages
 
-# Works with either Pages mode. It asks GitHub how Pages is configured, then:
-#   - source "GitHub Actions": uploads the repo as a Pages artifact and deploys it
-#   - source "branch":         force-pushes main to gh-pages, which Pages then builds
-# Either way, main is the only branch anyone edits.
+# Publishes the site. It asks GitHub how Pages is configured and adapts:
+#   - source "GitHub Actions": uploads the repo as a Pages artifact and deploys it.
+#     GitHub only lets the branch recorded in the Pages settings deploy (the default
+#     branch at the time Pages was enabled), so the deploy runs on that branch.
+#   - source "branch":         force-pushes main to that branch for Pages to build.
+# See README "One-time setup" for how to make main the publishing branch.
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - claude/cyclestart-free-hosting-wwn877
   workflow_dispatch:
 
 permissions:
@@ -16,7 +20,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages
+  group: pages-${{ github.ref_name }}
   cancel-in-progress: true
 
 jobs:
@@ -24,6 +28,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       build_type: ${{ steps.pages.outputs.build_type }}
+      source_branch: ${{ steps.pages.outputs.source_branch }}
     steps:
       - name: Read Pages configuration
         id: pages
@@ -33,39 +38,45 @@ jobs:
           if json="$(gh api "repos/${{ github.repository }}/pages" 2>/dev/null)"; then
             echo "$json" | jq '{build_type, status, cname, html_url, source}'
             echo "build_type=$(echo "$json" | jq -r '.build_type // "legacy"')" >> "$GITHUB_OUTPUT"
+            echo "source_branch=$(echo "$json" | jq -r '.source.branch // "gh-pages"')" >> "$GITHUB_OUTPUT"
           else
-            echo "::warning::Could not read Pages settings; assuming branch mode."
+            echo "::warning::Could not read Pages settings; assuming branch mode with gh-pages."
             echo "build_type=legacy" >> "$GITHUB_OUTPUT"
+            echo "source_branch=gh-pages" >> "$GITHUB_OUTPUT"
           fi
 
+  # Pages source = GitHub Actions, and this run is on the branch Pages accepts.
   deploy-actions:
     needs: detect
-    if: needs.detect.outputs.build_type == 'workflow'
+    if: needs.detect.outputs.build_type == 'workflow' && github.ref_name == needs.detect.outputs.source_branch
     runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
-      - name: Set custom domain from CNAME
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh api -X PUT "repos/${{ github.repository }}/pages" -f cname="$(tr -d '[:space:]' < CNAME)" \
-            || echo "::warning::Could not set custom domain automatically. Set it under Settings > Pages."
       - uses: actions/upload-pages-artifact@v3
         with:
           path: .
       - id: deployment
         uses: actions/deploy-pages@v4
 
+  # Pages source = GitHub Actions, but this branch is not the one Pages accepts.
+  explain:
+    needs: detect
+    if: needs.detect.outputs.build_type == 'workflow' && github.ref_name != needs.detect.outputs.source_branch
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "::warning::Pages only deploys from '${{ needs.detect.outputs.source_branch }}'. This push to '${{ github.ref_name }}' was not published. To publish from main, see README > One-time setup."
+
+  # Pages source = a branch. Mirror main into it (unless main is that branch already).
   deploy-branch:
     needs: detect
-    if: needs.detect.outputs.build_type != 'workflow'
+    if: needs.detect.outputs.build_type != 'workflow' && github.ref_name == 'main' && needs.detect.outputs.source_branch != 'main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Push main to gh-pages
-        run: git push --force origin HEAD:gh-pages
+      - run: git push --force origin HEAD:${{ needs.detect.outputs.source_branch }}
