@@ -34,8 +34,13 @@
     for (const l of vs) { const R = Math.max(l.r, l.dv); for (let dx = -R; dx <= R; dx++) for (let dy = -R; dy <= R; dy++) { const x = l.x + dx, y = l.y + dy; if (x < 0 || y < 0 || x >= m.w || y >= m.h) continue; const d = Math.hypot(dx, dy); if (d > R + 0.5) continue; const i = y * m.w + x; if (m.t[i] === T.VOID) continue; if (!seesCell(l, x, y, R)) continue; let lv = d <= l.r ? U.clamp(1 - (d / (l.r + 1)) * 0.9, 0.12, 1) : 0; if (l.dv && d <= l.dv) lv = Math.max(lv, 0.3); m.vis[i] = 1; m.seen[i] = 1; if (lv > m.light[i]) m.light[i] = lv; } }
     // 2) static lights: they light cells, and reveal lit cells that some viewer has line of sight to (a lit room seen through a doorway)
     for (const l of (extraLights || [])) { const R = l.r; for (let dx = -R; dx <= R; dx++) for (let dy = -R; dy <= R; dy++) { const x = l.x + dx, y = l.y + dy; if (x < 0 || y < 0 || x >= m.w || y >= m.h) continue; const d = Math.hypot(dx, dy); if (d > R + 0.5) continue; const i = y * m.w + x; if (m.t[i] === T.VOID) continue; if (!seesCell(l, x, y, R)) continue; const lv = U.clamp(1 - (d / (R + 1)) * 0.9, 0.12, 1); if (!m.vis[i]) { const seenByViewer = vs.some((v) => Math.hypot(v.x - x, v.y - y) <= 14 && seesCell(v, x, y, 14)); if (!seenByViewer) continue; m.vis[i] = 1; m.seen[i] = 1; } if (lv > m.light[i]) m.light[i] = lv; } }
-    for (let i = 0; i < m.t.length; i++) if (m.vis[i] && m.light[i] < 0.12) m.light[i] = 0.12;
+    // 3) a room you are standing in is lit as a whole: walk through the door and the chamber opens up (Diablo-style),
+    //    dimmer than your torchlight but never a black box you have to feel your way around
+    for (const v of vs) { const room = (m.rooms || []).find((r) => v.x >= r.x && v.x < r.x + r.w && v.y >= r.y && v.y < r.y + r.h); if (!room) continue;
+      for (let y = room.y; y < room.y + room.h; y++) for (let x = room.x; x < room.x + room.w; x++) { const i = y * m.w + x; if (m.t[i] === T.VOID) continue; m.vis[i] = 1; m.seen[i] = 1; if (m.light[i] < ROOM_GLOW) m.light[i] = ROOM_GLOW; } }
+    for (let i = 0; i < m.t.length; i++) if (m.vis[i] && m.light[i] < 0.22) m.light[i] = 0.22;
   };
+  const ROOM_GLOW = 0.42;
   W.staticLights = (m) => m.props.filter((p) => !p.removed && (p.kind === 'brazier' || p.kind === 'torch' || (p.kind === 'campfire' && p.lit !== false) || p.kind === 'fireplace' || p.kind === 'lamp')).map((p) => ({ x: p.x, y: p.y, r: p.kind === 'torch' ? 4 : 5 }));
 
   // ---- Overworld ----

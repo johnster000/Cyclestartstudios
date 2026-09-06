@@ -20,6 +20,8 @@
   const VF = (x, y, z, axis, w, h, col) => ({ t: 'vflat', x, y, z, axis, w, h, col });
   const FLAME = (x, y, z, s) => ({ t: 'flame', x, y, z, s: s || 1 });
   const BILL = (x, y, z, key, make) => ({ t: 'bill', x, y, z, key, make });
+  // soft, irregular painterly mass (foliage, rocks): drawn with a radial gradient and a noisy outline
+  const BLOB = (x, y, z, r, col, seed, sq) => ({ t: 'blob', x, y, z, r, col, seed: seed || 0, sq: sq || 0.86 });
   const WOOD = '#7a5a3a', DARK = '#3a2a1a', STONE = '#6e6a78', METAL = '#a8aebc', GOLD = '#e0c040';
   const legs = (hw, hd, h, col, inset) => { const i = inset || 0.06; return [B(-hw + i, -hd + i, 0, 0.08, 0.08, h, col), B(hw - i, -hd + i, 0, 0.08, 0.08, h, col), B(-hw + i, hd - i, 0, 0.08, 0.08, h, col), B(hw - i, hd - i, 0, 0.08, 0.08, h, col)]; };
   const books = (x, y, z, axis, n, seed) => { const out = []; const cols = ['#a04040', '#4060a0', '#40a060', '#c0a030', '#805090', '#c06030']; for (let i = 0; i < n; i++) { const w = 0.07 + ((seed + i) % 3) * 0.02, hh = 0.16 + ((seed * 7 + i) % 3) * 0.03; const off = -0.3 + i * (0.62 / n); out.push(axis === 'x' ? B(x + off, y, z, w, 0.18, hh, cols[(i + seed) % 6]) : B(x, y + off, z, 0.18, w, hh, cols[(i + seed) % 6])); } return out; };
@@ -48,7 +50,7 @@
       case 'stool': return [CY(0, 0, 0.26, 0.2, 0.06, WOOD, sh(WOOD, 0.2))].concat(legs(0.14, 0.14, 0.26, sh(WOOD, -0.3), 0));
       case 'bookshelf': { const along = ctx.wallDir ? (Math.abs(wd[0]) > 0 ? 'y' : 'x') : 'x'; const w = along === 'x' ? 0.9 : 0.34, d = along === 'x' ? 0.34 : 0.9; const out = [B(0, 0, 0, w, d, 1.3, WOOD, sh(WOOD, 0.15))]; for (let r = 0; r < 3; r++) out.push(...books(wd[0] * 0.1, wd[1] * 0.1, 0.12 + r * 0.4, along, 5, seed + r)); return out; }
       case 'brazier': return [CY(0, 0, 0, 0.14, 0.4, '#4a4a54'), CY(0, 0, 0.4, 0.28, 0.16, '#4a4a54', '#2a1a10'), FLAME(0, 0, 0.56, 1.1)];
-      case 'torch': { const [fx, fy] = face(0.42); return [B(fx, fy, 0.75, 0.08, 0.08, 0.3, DARK), B(fx, fy, 1.05, 0.14, 0.14, 0.08, '#3a3a3a'), FLAME(fx, fy, 1.13, 0.7)]; }
+      case 'torch': { const [fx, fy] = face(0.42); return [B(fx, fy, 0, 0.07, 0.07, 1.05, DARK), B(fx, fy, 1.05, 0.14, 0.14, 0.08, '#3a3a3a'), FLAME(fx, fy, 1.13, 0.7)]; } // a standing iron sconce, since walls are now open ledges
       case 'campfire': { const out = [B(0, 0, 0, 0.7, 0.14, 0.12, '#5a4a3a'), B(0, 0, 0, 0.14, 0.7, 0.12, '#5a4a3a'), B(0, 0, 0.1, 0.5, 0.14, 0.1, '#4a3a2a')]; for (let i = 0; i < 6; i++) { const a = i * Math.PI / 3; out.push(B(Math.cos(a) * 0.36, Math.sin(a) * 0.36, 0, 0.12, 0.12, 0.1, STONE)); } if (p.lit !== false) out.push(FLAME(0, 0, 0.18, 1.3)); return out; }
       case 'lever': return [B(0, 0, 0, 0.36, 0.36, 0.34, '#5a5a64', sh('#5a5a64', 0.2)), B(p.on ? 0 : -0.14, 0, 0.34, 0.06, 0.06, p.on ? 0.36 : 0.3, METAL), B(p.on ? 0 : -0.16, 0, p.on ? 0.7 : 0.62, 0.14, 0.14, 0.14, '#e04040', '#f05a5a')];
       case 'cage': { const out = [B(0, 0, 0, 0.8, 0.8, 0.06, '#6a6a74'), B(0, 0, 1.2, 0.8, 0.8, 0.06, '#6a6a74')]; for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) { if (!i && !j) continue; if (p.open && j === 1 && i === 0) continue; out.push(B(i * 0.36, j * 0.36, 0.06, 0.04, 0.04, 1.14, METAL)); } if (p.prisonerSprite && !p.open) out.push(BILL(0, 0, 0.06, 'prisoner', () => Sprites.humanoid(p.prisonerSprite))); return out; }
@@ -57,38 +59,31 @@
       case 'stairs': { const out = [FL(0, 0, 0.004, 0.9, 0.9, '#0a0a10')]; for (let i = 0; i < 4; i++) out.push(B(0, -0.35 + i * 0.22, 0, 0.9, 0.22, 0.22 - i * 0.055, sh(STONE, -0.1 * i), sh(STONE, 0.1 - 0.1 * i))); return out; }
       case 'trapdoor': return [B(0, 0, 0, 0.8, 0.6, 0.04, WOOD, sh(WOOD, 0.1)), B(0, 0, 0.04, 0.8, 0.06, 0.02, DARK), B(0.28, 0, 0.04, 0.1, 0.06, 0.02, METAL)];
       case 'door': case 'secretDoor': { const axis = ctx.doorAxis ? ctx.doorAxis(p.x, p.y) : 'x'; const col = p.color || (kind === 'secretDoor' ? '#5a5a60' : WOOD); const w = axis === 'x' ? 1 : 0.18, d = axis === 'x' ? 0.18 : 1; if (p.open) { return [B(axis === 'x' ? -0.42 : 0, axis === 'x' ? 0 : -0.42, 0, axis === 'x' ? 0.16 : 0.18, axis === 'x' ? 0.18 : 0.16, 1.3, col), B(axis === 'x' ? 0.42 : 0, axis === 'x' ? 0 : 0.42, 0, axis === 'x' ? 0.16 : 0.18, axis === 'x' ? 0.18 : 0.16, 1.3, col)]; } const out = [B(0, 0, 0, w, d, 1.3, col, sh(col, 0.1))]; for (const k of [0.45, 0.9]) out.push(B(0, 0, k, w * 0.9, d * 1.1, 0.03, sh(col, -0.45))); out.push(B(axis === 'x' ? 0.3 : 0, axis === 'x' ? 0 : 0.3, 0.6, axis === 'x' ? 0.08 : 0.24, axis === 'x' ? 0.24 : 0.08, 0.08, p.locked ? '#e04040' : METAL)); return out; }
-      case 'tree': { const leaf = o.color || '#3a6f38'; const l1 = lit(leaf, 0.22), l2 = sh(leaf, -0.2);
-        const g0 = 0.9 + jit(1) * 0.22, z0 = 0.62 + jit(2) * 0.2, sx = jit(3) < 0.5 ? -1 : 1;
-        const out = [B(0, 0, 0, 0.22, 0.22, z0 + 0.16, '#3d2b1c', '#4a3423'),
-          B(0, 0, z0, 0.84 * g0, 0.84 * g0, 0.34, leaf, lit(leaf, 0.14)),
-          B(-0.34 * sx, 0.12, z0 + 0.12, 0.36, 0.36, 0.3, l2, lit(l2, 0.16)),
-          B(0.34 * sx, -0.14, z0 + 0.18, 0.32, 0.32, 0.28, l2, lit(l2, 0.16)),
-          B(0, 0, z0 + 0.34, 0.66 * g0, 0.66 * g0, 0.34, l1, lit(l1, 0.14)),
-          B(0, 0, z0 + 0.68, 0.4 * g0, 0.4 * g0, 0.28, lit(leaf, 0.34), lit(leaf, 0.48)),
-          B(0, 0, z0 + 0.96, 0.18, 0.18, 0.12, lit(leaf, 0.42), lit(leaf, 0.58))];
-        if (o.autumn) out.push(B(0.24 * sx, -0.28, z0 + 0.36, 0.26, 0.26, 0.24, '#b5652a', '#d68b3c')); return out; }
-      case 'pine': { const leaf = o.color || '#2c5c3a';
-        const g0 = 0.88 + jit(4) * 0.24, t0 = 0.28 + jit(5) * 0.12;
-        const out = [B(0, 0, 0, 0.18, 0.18, 0.5, '#3a2416', '#4a3020'),
-          B(0, 0, 0.42, 0.9 * g0, 0.9 * g0, t0, leaf, lit(leaf, 0.16)),
-          B(0, 0, 0.42 + t0, 0.7 * g0, 0.7 * g0, t0 + 0.02, lit(leaf, 0.12), lit(leaf, 0.28)),
-          B(0, 0, 0.44 + t0 * 2, 0.5 * g0, 0.5 * g0, t0 + 0.02, lit(leaf, 0.24), lit(leaf, 0.4)),
-          B(0, 0, 0.46 + t0 * 3, 0.28 * g0, 0.28 * g0, t0, lit(leaf, 0.36), lit(leaf, 0.52)),
-          B(0, 0, 0.46 + t0 * 4, 0.12, 0.12, 0.12, lit(leaf, 0.46), lit(leaf, 0.62))];
-        if (o.snow) out.push(B(0, 0, 0.58 + t0 * 4, 0.16, 0.16, 0.08, '#e8eef4', '#f4f8fc')); return out; }
+      case 'tree': { const leaf = o.color || '#3a6f38'; const j = jit(1) * 0.3 - 0.15, k = jit(2) * 0.2;
+        const out = [CY(0, 0, 0, 0.11 + jit(3) * 0.05, 0.95 + k, '#4a3424', '#5a4030'),
+          BLOB(0, 0, 0.72 + k, 0.62, sh(leaf, -0.28), seed + 5, 0.7), // shadowed underside
+          BLOB(-0.28 + j, 0.14, 0.92 + k, 0.46, sh(leaf, -0.08), seed + 1),
+          BLOB(0.3 - j, -0.12, 0.98 + k, 0.44, leaf, seed + 2),
+          BLOB(0.02, 0.02, 1.16 + k, 0.5, lit(leaf, 0.08), seed + 3),
+          BLOB(-0.08 + j, -0.08, 1.42 + k, 0.32, lit(leaf, 0.22), seed + 4)];
+        if (o.autumn) out.push(BLOB(0.22, -0.2, 1.3 + k, 0.26, '#b8642c', seed + 6));
+        return out; }
+      case 'pine': { const leaf = o.color || '#2c5c3a'; const k = jit(4) * 0.25;
+        return [CY(0, 0, 0, 0.09, 0.6, '#3a2416', '#4a3020'),
+          BLOB(0, 0, 0.5 + k, 0.56, sh(leaf, -0.2), seed + 1, 0.62), BLOB(0, 0, 0.82 + k, 0.46, sh(leaf, -0.05), seed + 2, 0.64),
+          BLOB(0, 0, 1.12 + k, 0.36, lit(leaf, 0.1), seed + 3, 0.66), BLOB(0, 0, 1.4 + k, 0.24, lit(leaf, 0.24), seed + 4, 0.7), BLOB(0, 0, 1.62 + k, 0.11, lit(leaf, 0.36), seed + 5, 0.8)]; }
       case 'bush': { const leaf = o.color || '#4a8a3a';
-        const out = [B(0, 0, 0, 0.7, 0.7, 0.3, leaf, lit(leaf, 0.14)), B(-0.18, 0.12, 0.28, 0.36, 0.36, 0.2, lit(leaf, 0.16), lit(leaf, 0.3)), B(0.2, -0.1, 0.26, 0.32, 0.32, 0.18, sh(leaf, -0.16), lit(sh(leaf, -0.16), 0.16))];
-        if (o.berries) { out.push(B(-0.12, 0.18, 0.48, 0.1, 0.1, 0.1, '#e04040')); out.push(B(0.2, 0.04, 0.44, 0.1, 0.1, 0.1, '#e04040')); } return out; }
-      case 'rock': return [B(0, 0, 0, 0.6, 0.5, 0.3, STONE, sh(STONE, 0.2)), B(-0.1, 0.05, 0.3, 0.36, 0.3, 0.16, sh(STONE, 0.05), sh(STONE, 0.3))];
-      case 'mushroom': { const cap = o.color || '#c04040'; return [B(0, 0, 0, 0.16, 0.16, 0.3, '#e0d0b0', '#efe4cc'), B(0, 0, 0.28, 0.46, 0.46, 0.16, cap, sh(cap, 0.28)), B(0, 0, 0.44, 0.26, 0.26, 0.12, sh(cap, 0.12), sh(cap, 0.38)), B(-0.1, -0.1, 0.44, 0.08, 0.08, 0.05, '#f0f0e0', '#ffffff')]; }
-      case 'stall': { const col = o.color || p.color || '#c04040'; const out = [B(0, 0, 0.36, 1.0, 0.6, 0.06, WOOD, sh(WOOD, 0.2))].concat(legs(0.5, 0.3, 0.36, sh(WOOD, -0.3))); out.push(B(-0.46, 0.26, 0.42, 0.06, 0.06, 0.8, WOOD), B(0.46, 0.26, 0.42, 0.06, 0.06, 0.8, WOOD), B(-0.46, -0.26, 0.42, 0.06, 0.06, 0.8, WOOD), B(0.46, -0.26, 0.42, 0.06, 0.06, 0.8, WOOD)); for (let i = 0; i < 5; i++) out.push(B(-0.44 + i * 0.22, 0, 1.22, 0.22, 0.8, 0.06, i % 2 ? col : '#f0e8d8', i % 2 ? sh(col, 0.15) : '#f8f4ec')); out.push(B(-0.2, -0.05, 0.42, 0.2, 0.16, 0.1, '#e0a030'), B(0.2, 0.05, 0.42, 0.18, 0.18, 0.08, '#40a040')); return out; }
+        const out = [BLOB(0, 0, 0.16, 0.4, sh(leaf, -0.2), seed + 1, 0.7), BLOB(-0.18, 0.1, 0.3, 0.3, leaf, seed + 2), BLOB(0.2, -0.06, 0.34, 0.28, lit(leaf, 0.14), seed + 3), BLOB(0, 0.02, 0.46, 0.24, lit(leaf, 0.26), seed + 4)];
+        if (o.berries) { out.push(SP(-0.12, 0.16, 0.5, 0.05, '#e04040')); out.push(SP(0.2, 0.04, 0.46, 0.05, '#e04040')); out.push(SP(0.02, -0.14, 0.58, 0.045, '#e04040')); } return out; }
+      case 'rock': return [BLOB(0.04, 0.06, 0.02, 0.34, sh(STONE, -0.35), seed + 1, 0.6), BLOB(0, 0, 0.16, 0.36, STONE, seed + 2, 0.66), BLOB(-0.08, -0.06, 0.34, 0.22, lit(STONE, 0.18), seed + 3, 0.7)];
+      case 'mushroom': { const cap = o.color || '#c04040'; return [CY(0, 0, 0, 0.07, 0.26, '#e0d0b0', '#efe4cc'), BLOB(0, 0, 0.28, 0.24, cap, seed + 1, 0.62), SP(-0.06, -0.06, 0.36, 0.04, '#f0f0e0')]; }
       case 'well': return [CY(0, 0, 0, 0.42, 0.4, STONE, '#203050'), B(-0.34, 0, 0.4, 0.08, 0.08, 0.8, WOOD), B(0.34, 0, 0.4, 0.08, 0.08, 0.8, WOOD), B(0, 0, 1.2, 0.9, 0.7, 0.1, '#8a3a2a', '#a04a3a'), CY(0, 0, 0.98, 0.06, 0.06, '#5a5a5a'), B(0, 0, 1.02, 0.7, 0.04, 0.04, '#5a5a5a')];
       case 'lamp': return [B(0, 0, 0, 0.24, 0.24, 0.06, '#3a3a44'), CY(0, 0, 0.06, 0.05, 1.3, '#3a3a44'), B(0, 0, 1.36, 0.26, 0.26, 0.26, '#3a3a44', '#3a3a44'), SP(0, 0, 1.49, 0.11, '#ffd060'), B(0, 0, 1.62, 0.3, 0.3, 0.04, '#2a2a34')];
       case 'signpost': return [CY(0, 0, 0, 0.05, 1.0, WOOD), B(0, -0.02, 0.62, 0.7, 0.08, 0.3, sh(WOOD, 0.25), sh(WOOD, 0.3)), VF(0, -0.07, 0.68, 'x', 0.5, 0.05, DARK), VF(0, -0.07, 0.8, 'x', 0.4, 0.05, DARK)];
       case 'questBoard': return [B(-0.34, 0, 0, 0.08, 0.1, 1.2, DARK), B(0.34, 0, 0, 0.08, 0.1, 1.2, DARK), B(0, 0, 0.5, 0.86, 0.08, 0.7, WOOD, sh(WOOD, 0.1)), B(0, 0, 1.2, 0.94, 0.14, 0.08, DARK), VF(-0.2, -0.05, 0.62, 'x', 0.24, 0.3, '#f0e8d0'), VF(0.12, -0.05, 0.7, 'x', 0.28, 0.34, '#e8dcc0'), VF(0.3, -0.05, 0.56, 'x', 0.16, 0.22, '#f0e8d0'), VF(-0.2, -0.06, 0.9, 'x', 0.04, 0.04, '#e04040'), VF(0.12, -0.06, 1.0, 'x', 0.04, 0.04, '#e04040')];
       case 'bed': return [B(0, 0, 0, 0.8, 0.96, 0.22, WOOD, sh(WOOD, 0.1)), B(0, 0.05, 0.22, 0.74, 0.8, 0.12, '#8a3a3a', '#a04848'), B(0, -0.32, 0.22, 0.6, 0.22, 0.12, '#f0e8d8', '#f8f4ec'), B(0, -0.46, 0, 0.8, 0.06, 0.6, WOOD, sh(WOOD, 0.2))];
       case 'fireplace': { const [fx, fy] = face(0.2); return [B(fx * 0.5, fy * 0.5, 0, 0.9 - Math.abs(wd[0]) * 0.3, 0.9 - Math.abs(wd[1]) * 0.3, 1.4, '#7a7a80', '#8a8a90'), B(fx, fy, 0.12, 0.5, 0.5, 0.5, '#1a0a0a', '#1a0a0a'), B(fx, fy, 0.9, 0.9 - Math.abs(wd[0]) * 0.2, 0.9 - Math.abs(wd[1]) * 0.2, 0.08, sh('#7a7a80', 0.2), sh('#7a7a80', 0.3)), FLAME(fx * 1.1, fy * 1.1, 0.18, 1.0)]; }
-      case 'plant': return [B(0, 0, 0, 0.34, 0.34, 0.26, '#a07a50', '#5a3a20'), B(0, 0, 0.26, 0.42, 0.42, 0.22, '#3a8a3a', '#4a9a4a'), B(-0.14, 0.08, 0.48, 0.18, 0.18, 0.16, '#4a9a4a', '#5aaa5a'), B(0.14, -0.06, 0.48, 0.16, 0.16, 0.22, '#357a35', '#459a45')];
+      case 'plant': return [CY(0, 0, 0, 0.16, 0.24, '#a07a50', '#5a3a20'), BLOB(0, 0, 0.36, 0.24, '#3a8a3a', seed + 1), BLOB(-0.12, 0.06, 0.48, 0.16, '#4a9a4a', seed + 2), BLOB(0.14, -0.04, 0.54, 0.14, '#5aaa5a', seed + 3)];
       case 'window': { const [fx, fy] = face(0.5); const axis = Math.abs(wd[0]) > 0 ? 'y' : 'x'; return [VF(fx, fy, 0.6, axis, 0.5, 0.5, '#8ab0d0'), VF(fx * 1.02, fy * 1.02, 0.6, axis, 0.04, 0.5, WOOD), VF(fx * 1.02, fy * 1.02, 0.84, axis, 0.5, 0.04, WOOD)]; }
       case 'banner': { const [fx, fy] = face(0.5); const axis = Math.abs(wd[0]) > 0 ? 'y' : 'x'; const col = o.color || '#a02020'; return [VF(fx, fy, 0.45, axis, 0.44, 0.85, col), VF(fx * 1.02, fy * 1.02, 0.85, axis, 0.2, 0.2, GOLD), B(fx, fy, 1.3, axis === 'x' ? 0.5 : 0.06, axis === 'x' ? 0.06 : 0.5, 0.05, WOOD)]; }
       case 'dragonhead': { const [fx, fy] = face(0.4); return [B(fx, fy, 0.9, 0.6, 0.5, 0.36, '#3a7a8a', '#4a8a9a'), B(fx * 1.6, fy * 1.6, 0.86, 0.3, 0.3, 0.2, '#2a5a6a'), SP(fx * 1.3 - 0.14, fy * 1.3, 1.2, 0.05, '#ffd040'), SP(fx * 1.3 + 0.14, fy * 1.3, 1.2, 0.05, '#ffd040'), B(fx * 0.8 - 0.2, fy * 0.8, 1.26, 0.06, 0.06, 0.2, '#e0d0c0'), B(fx * 0.8 + 0.2, fy * 0.8, 1.26, 0.06, 0.06, 0.2, '#e0d0c0')]; }
@@ -112,7 +107,7 @@
   P3.building = (b) => {
     const wall = b.wall || '#8a7a5a', roof = b.roof || '#8a3a2a'; const H = 1.4, RH = 0.9;
     const cx = b.x + (b.w - 1) / 2, cy = b.y + (b.h - 1) / 2;
-    const out = [B(0, 0, 0, b.w, b.h, 0.24, sh('#6a6a74', -0.1), sh('#6a6a74', 0.1)), B(0, 0, 0.24, b.w, b.h, H - 0.24, wall, sh(wall, 0.1))];
+    const out = [B(0, 0, 0, b.w, b.h, 0.24, sh('#6a6a74', -0.1), sh('#6a6a74', 0.1)), Object.assign(B(0, 0, 0.24, b.w, b.h, H - 0.24, wall, sh(wall, 0.1)), { tex: 'stone' })];
     out.push({ t: 'roof', x: 0, y: 0, z: H, w: b.w + 0.3, d: b.h + 0.3, rh: RH, col: roof, along: b.w >= b.h ? 'x' : 'y' });
     if (b.door !== undefined) { const dx = b.door - cx; out.push(VF(dx, b.h / 2 + 0.005, 0.02, 'x', 0.6, 0.95, '#3a2212')); out.push(VF(dx, b.h / 2 + 0.01, 0.06, 'x', 0.5, 0.85, '#5a3a1e')); out.push(VF(dx + 0.16, b.h / 2 + 0.015, 0.45, 'x', 0.06, 0.06, GOLD)); if (b.locked) out.push(VF(dx, b.h / 2 + 0.015, 0.5, 'x', 0.14, 0.14, '#e04040')); if (b.sign) { out.push(B(dx - 0.55, b.h / 2 + 0.16, 1.02, 0.5, 0.06, 0.26, '#3a2412')); out.push(VF(dx - 0.55, b.h / 2 + 0.2, 1.06, 'x', 0.42, 0.18, '#d8c8a0')); } }
     for (let i = 0; i < b.w; i += 2) { if (b.door !== undefined && b.x + i === b.door) continue; out.push(VF(b.x + i - cx, b.h / 2 + 0.005, 0.55, 'x', 0.4, 0.38, '#2a2a3a')); out.push(VF(b.x + i - cx, b.h / 2 + 0.01, 0.6, 'x', 0.3, 0.28, 'rgba(255,190,90,.9)')); }

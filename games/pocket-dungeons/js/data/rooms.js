@@ -54,9 +54,9 @@ window.ROOMS = [
 ];
 // Theme palettes for the renderer + decoration remaps
 window.THEMES = {
-  cellar: { name: 'Cellar', floor: ['#5a4838', '#62503f', '#544232'], wall: '#3a2c24', wallTop: '#8a7460', accent: '#8a6a3a', container: 'barrel', light: 0.8, ambient: '#2a1a10' },
-  cave: { name: 'Cave', floor: ['#56524a', '#5e5a50', '#4c4840'], wall: '#3a352e', wallTop: '#8a8276', accent: '#6a8a4a', container: 'crate', light: 0.7, ambient: '#101418' },
-  crypt: { name: 'Crypt', floor: ['#465064', '#4e586e', '#3e485a'], wall: '#2a2e44', wallTop: '#7a80a4', accent: '#8a8aa0', container: 'coffin', light: 0.65, ambient: '#0a0c18' },
+  cellar: { name: 'Cellar', floor: ['#544236', '#5c4a3c', '#4c3c30'], wall: '#2e231c', wallTop: '#7a6654', accent: '#8a6a3a', container: 'barrel', light: 0.8, ambient: '#2a1a10' },
+  cave: { name: 'Cave', floor: ['#514d48', '#5a554e', '#47433e'], wall: '#2e2a26', wallTop: '#7a736a', accent: '#6a8a4a', container: 'crate', light: 0.7, ambient: '#101418' },
+  crypt: { name: 'Crypt', floor: ['#3e465a', '#464e62', '#363e50'], wall: '#22263a', wallTop: '#6c7290', accent: '#8a8aa0', container: 'coffin', light: 0.65, ambient: '#0a0c18' },
   forest: { name: 'Den', floor: ['#46563a', '#4e5e44', '#405034'], wall: '#33261a', wallTop: '#7a6448', accent: '#7ac060', container: 'crate', light: 0.8, ambient: '#0c140c' },
   fort: { name: 'Fort', floor: ['#66625c', '#6e6a64', '#5e5a54'], wall: '#3e3630', wallTop: '#9a8e80', accent: '#a03030', container: 'crate', light: 0.9, ambient: '#141210' },
   temple: { name: 'Temple', floor: ['#46586c', '#4e6076', '#3e5062'], wall: '#26304a', wallTop: '#7c94b8', accent: '#c040a0', container: 'urn', light: 0.7, ambient: '#0a0a1a' },

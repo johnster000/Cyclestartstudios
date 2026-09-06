@@ -8,7 +8,7 @@
   G.log = (text, kind) => { UI.log(text, kind); };
   G.showRoll = (rec) => { /* Dice listener already animates; hook kept for combat */ };
   G.toast = (t) => UI.toast(t);
-  G.fxDelay = (ms) => U.wait(G.fast ? Math.min(ms, 30) : ms);
+  G.fxDelay = (ms) => U.wait(G.fast ? Math.min(ms, 30) : ms / UI.speedFactor()); // Slow and Fast stretch or hurry the beats between actions
   G.partyLevel = () => { const alive = G.party.filter((p) => !p.dead); return alive.length ? Math.round(alive.reduce((s, p) => s + p.level, 0) / alive.length) : 1; };
   G.entities = () => G.party.filter((p) => !p.dead || p.corpse).concat(G.map ? G.map.npcs : [], G.monsters.filter((m) => !m.escaped));
   G.entityAt = (x, y) => G.entities().find((e) => !e.dead && !e.hidden && e.x === x && e.y === y) || null;
@@ -23,7 +23,7 @@
     let last = performance.now(); const loop = (now) => { const dt = Math.min(0.1, (now - last) / 1000); last = now; G.update(dt); requestAnimationFrame(loop); }; requestAnimationFrame(loop);
   };
   G.update = (dt) => {
-    if (!G.map) return; Renderer.update(dt, G.entities());
+    if (!G.map) return; Renderer.hudBottom = window.innerWidth < 600 ? 200 : 110; Renderer.update(dt, G.entities());
     G.moveTimer = (G.moveTimer || 0) + dt;
     if (G.path && G.path.length && !Combat.active && G.moveTimer > 0.13 && !UI.modalOpen()) { G.moveTimer = 0; const [nx, ny] = G.path.shift(); if (!G.stepLeader(nx, ny)) G.path = null; if (G.path && !G.path.length) { G.path = null; if (G.pendingInteract) { const p = G.pendingInteract; G.pendingInteract = null; G.tryInteract(p); } } }
     if (G.map.kind === 'overworld' || G.map.kind === 'interior') G.wanderNpcs(dt);
@@ -66,7 +66,8 @@
   G.dismissCompanion = (ch) => { if (ch.isPlayer) return; G.state.party = G.party.filter((p) => p !== ch); ch.rescued = true; ch.hireCost = 0; G.state.guildRecruits = (G.state.guildRecruits || []).concat([ch]); log(ch.name + ' heads back to the Guild Hall.', 'story'); G.refreshHud(); };
 
   // ---------- Locations ----------
-  G.placeParty = (x, y) => { const alive = G.party.filter((p) => !p.dead); let i = 0; for (const p of alive) { const [px, py] = i === 0 ? [x, y] : World.findFloorNear(G.map, x, y, (xx, yy) => !alive.some((o) => o.x === xx && o.y === yy && o !== p) && World.passable(G.map, xx, yy)); p.x = px; p.y = py; p.ax = px; p.ay = py; p.downed = false; if (p.hp <= 0) p.hp = 1; i++; } Renderer.cam.x = x; Renderer.cam.y = y; Renderer.camTarget = G.leader(); G.path = null; G.updateVisibility(); G.refreshHud(); };
+  G.placeParty = (x, y) => { if (!Number.isFinite(x) || !Number.isFinite(y)) { const sp = G.map.spawn || G.map.exit || { x: 1, y: 1 }; x = sp.x; y = sp.y; } // never park the party (and the camera) at NaN
+    const alive = G.party.filter((p) => !p.dead); let i = 0; for (const p of alive) { const [px, py] = i === 0 ? [x, y] : World.findFloorNear(G.map, x, y, (xx, yy) => !alive.some((o) => o.x === xx && o.y === yy && o !== p) && World.passable(G.map, xx, yy)); p.x = px; p.y = py; p.ax = px; p.ay = py; p.downed = false; if (p.hp <= 0) p.hp = 1; i++; } Renderer.cam.x = x; Renderer.cam.y = y; Renderer.camTarget = G.leader(); G.path = null; G.updateVisibility(); G.refreshHud(); };
   G.enterTavern = (wake, pos) => { G.map = World.buildInterior(WORLDMAP.tavernInterior); G.map.monsters = []; G.state.location = 'tavern'; G.mode = 'explore'; const sp = pos || (wake ? G.map.spawn : G.map.exit); G.placeParty(sp.x, sp.y); UI.setLocation('The Rusty Flagon'); AudioSys.music('tavern'); };
   G.exitTavern = () => { G.enterTown(); const tav = WORLDMAP.buildings.find((b) => b.id === 'tavern'); G.placeParty(tav.door, tav.y + tav.h + 1); };
   G.enterTown = (pos) => { G.map = World.buildOverworld(G.state.flags); G.map.monsters = []; G.state.location = 'town'; G.mode = 'explore'; const sp = pos || G.map.spawn; G.placeParty(sp.x, sp.y); UI.setLocation('Hollowmere'); AudioSys.music('town'); if (G.state.pendingCompanion) { G.state.pendingCompanion = false; const c = Character.randomCompanion(G.partyLevel(), Math.random, {}); c.rescued = true; c.hireCost = 0; G.state.guildRecruits = (G.state.guildRecruits || []).concat([c]); log('A freed prisoner, ' + c.name + ', waits for you at the Guild Hall.', 'story'); } };
@@ -77,7 +78,9 @@
   G.enterDungeon = (site, quest) => {
     const params = Quests.dungeonParams(site, quest); G.state.dungeonRuns++;
     const m = Dungeon.generate(params); m.site = site; m.questId = quest ? quest.id : null; m.kills = 0; m.goldFound = 0; m.xpEarned = 0; m.roomsSeen = new Set(); m.secretsFound = 0; m.timeStart = Date.now();
-    G.map = m; G.state.location = 'dungeon'; G.mode = 'explore'; G.prevTownPos = { x: site.x, y: site.y + 1 };
+    G.map = m; G.state.location = 'dungeon'; G.mode = 'explore'; // Where you come out afterwards: beside the entrance you went in by. The cellar is entered from the tavern trapdoor,
+    // so it has no map position of its own and returns you to the tavern (a missing position here was a black screen).
+    G.dungeonReturn = Number.isFinite(site.x) && Number.isFinite(site.y) ? { where: 'town', pos: { x: site.x, y: site.y + 1 } } : { where: 'tavern', pos: WORLDMAP.tavernInterior.cellar };
     for (const p of G.party) { p.lightRadius = G.hasItem('torch') || G.hasItem('lantern') ? 6 : 4; if (Rules.accBonus(p, 'light')) p.lightRadius = Math.max(p.lightRadius, 6 + Rules.accBonus(p, 'light')); p.blinkUsed = false; p.fateUsed = false; p.wandCharges = undefined; p.usedFreeRest = false; }
     if (G.state.flags.templeBlessing) { G.state.flags.templeBlessing = false; for (const p of G.party) if (!p.dead) Rules.addCondition(p, 'bless', 999); log('The temple blessing settles over the party.', 'heal'); }
     G.placeParty(m.spawn.x, m.spawn.y); UI.setLocation(m.name + ' · Lv ' + m.level); AudioSys.music('dungeon');
@@ -89,7 +92,7 @@
     const victory = !!(m.boss && m.boss.dead) || (m.bossSpared);
     const summary = { victory, name: m.name, seconds: secs, kills: m.kills, gold: m.goldFound, xp: m.xpEarned, rooms: m.roomsSeen.size + '/' + m.rooms.filter((r) => !r.secret).length, secrets: m.secretsFound + '/' + (m.secretRooms || 0), twist: q && q.twistRevealed ? q.twist : null, flavor: victory ? 'You climb back into daylight, heavier with loot and lighter on healing potions. A good day.' : 'You retreat for now. The dungeon will still be there. Unfortunately.' };
     for (const p of G.party) { Rules.clearCombatState(p); p.lightRadius = 0; if (p.downed) { p.downed = false; p.hp = 1; } }
-    UI.dungeonSummary(summary, () => { G.enterTown(G.prevTownPos); if (victory) AudioSys.play('victory'); G.save(); });
+    UI.dungeonSummary(summary, () => { const back = G.dungeonReturn || { where: 'town', pos: null }; if (back.where === 'tavern') G.enterTavern(false, back.pos); else G.enterTown(back.pos); if (victory) AudioSys.play('victory'); G.save(); });
   };
   G.partyWipe = () => {
     AudioSys.play('defeat'); log('The party has fallen…', 'warn');
@@ -150,12 +153,16 @@
     const endTouch = (e) => { touches.delete(e.pointerId); if (touches.size < 2 && pinch) { pinch = null; downAt = null; } };
     c.addEventListener('pointerup', endTouch); c.addEventListener('pointercancel', endTouch);
     c.addEventListener('wheel', (e) => { e.preventDefault(); Renderer.setZoom(Renderer.zoom * (e.deltaY < 0 ? 1.15 : 1 / 1.15)); }, { passive: false });
-    c.addEventListener('pointermove', (e) => { if (Combat.isPlayerTurn()) { const t = Renderer.pickTile(e.clientX, e.clientY); G.cursor = t; } });
-    c.addEventListener('pointerup', (e) => { if (!downAt) return; const dx = e.clientX - downAt.x, dy = e.clientY - downAt.y; const moved = Math.hypot(dx, dy); downAt = null; if (moved > 12) return; if (UI.modalOpen()) return; G.tap(e.clientX, e.clientY); });
+    // one finger / mouse drag pans the map; a tap is a tap
+    c.addEventListener('pointermove', (e) => {
+      if (downAt && !pinch && touches.size < 2) { const moved = Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y); if (moved > 12 || downAt.panning) { if (!downAt.panning) { downAt.panning = true; downAt.lx = e.clientX; downAt.ly = e.clientY; } Renderer.pan(e.clientX - downAt.lx, e.clientY - downAt.ly); downAt.lx = e.clientX; downAt.ly = e.clientY; } }
+      if (Combat.isPlayerTurn()) { const t = Renderer.pickTile(e.clientX, e.clientY); G.cursor = t; }
+    });
+    c.addEventListener('pointerup', (e) => { if (!downAt) return; const dx = e.clientX - downAt.x, dy = e.clientY - downAt.y; const moved = Math.hypot(dx, dy); const panned = downAt.panning; downAt = null; if (moved > 12 || panned) return; if (UI.modalOpen()) return; G.tap(e.clientX, e.clientY); });
     document.querySelectorAll('#dpad button').forEach((b) => { b.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); AudioSys.init(); const d = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] }[b.dataset.dir]; const w = Renderer.screenToWorldDir(d[0], d[1]); G.moveDir(w[0], w[1]); }); });
     document.getElementById('rot-left').addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); AudioSys.init(); AudioSys.play('click'); Renderer.rotate(-1); });
     document.getElementById('rot-right').addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); AudioSys.init(); AudioSys.play('click'); Renderer.rotate(1); });
-    window.addEventListener('keydown', (e) => { if (UI.throwPending && (e.key === ' ' || e.key === 'Enter')) { e.preventDefault(); UI.doThrow(); return; } if (UI.modalOpen() || G.mode === 'title') { if (e.key === 'Escape') UI.closeModal(); return; } const map = { ArrowUp: [0, -1], w: [0, -1], W: [0, -1], ArrowDown: [0, 1], s: [0, 1], S: [0, 1], ArrowLeft: [-1, 0], a: [-1, 0], A: [-1, 0], ArrowRight: [1, 0], d: [1, 0], D: [1, 0] }; if (map[e.key]) { e.preventDefault(); const w = Renderer.screenToWorldDir(map[e.key][0], map[e.key][1]); G.moveDir(w[0], w[1]); } if (e.key === 'q' || e.key === 'Q') Renderer.rotate(-1); if (e.key === 'e' || e.key === 'E') Renderer.rotate(1); if (e.key === '+' || e.key === '=') Renderer.setZoom(Renderer.zoom * 1.15); if (e.key === '-' || e.key === '_') Renderer.setZoom(Renderer.zoom / 1.15); if (e.key === '<' || e.key === ',') G.transit('out'); if (e.key === '>' || e.key === '.') G.transit('in'); if (e.key === ' ' && Combat.isPlayerTurn()) { e.preventDefault(); Combat.endTurn(); } if (e.key === 'i' || e.key === 'I') UI.inventory(); if (e.key === 'c' && !Combat.active) UI.characterSheet(G.party[0]); if (e.key === 'j' || e.key === 'J') UI.questLog(); if (e.key === 'l' || e.key === 'L') UI.logPanel(); if (e.key === 'Escape') UI.menu(); if (e.key === 'f' || e.key === 'F') { G.fast = !G.fast; UI.toast(G.fast ? '⏩ Fast animations' : '▶ Normal animations'); } });
+    window.addEventListener('keydown', (e) => { if (UI.throwPending && (e.key === ' ' || e.key === 'Enter')) { e.preventDefault(); UI.doThrow(); return; } if ((e.key === ' ' || e.key === 'Enter') && Dice3D.skip()) { e.preventDefault(); return; } /* a shown result: Space or Enter dismisses it */ if (UI.modalOpen() || G.mode === 'title') { if (e.key === 'Escape') UI.closeModal(); return; } const map = { ArrowUp: [0, -1], w: [0, -1], W: [0, -1], ArrowDown: [0, 1], s: [0, 1], S: [0, 1], ArrowLeft: [-1, 0], a: [-1, 0], A: [-1, 0], ArrowRight: [1, 0], d: [1, 0], D: [1, 0] }; if (map[e.key]) { e.preventDefault(); const w = Renderer.screenToWorldDir(map[e.key][0], map[e.key][1]); G.moveDir(w[0], w[1]); } if (e.key === 'q' || e.key === 'Q') Renderer.rotate(-1); if (e.key === 'e' || e.key === 'E') Renderer.rotate(1); if (e.key === '+' || e.key === '=') Renderer.setZoom(Renderer.zoom * 1.15); if (e.key === '-' || e.key === '_') Renderer.setZoom(Renderer.zoom / 1.15); if (e.key === '<' || e.key === ',') G.transit('out'); if (e.key === '>' || e.key === '.') G.transit('in'); if (e.key === ' ' && Combat.isPlayerTurn()) { e.preventDefault(); Combat.endTurn(); } if (e.key === 'i' || e.key === 'I') UI.inventory(); if (e.key === 'c' && !Combat.active) UI.characterSheet(G.party[0]); if (e.key === 'j' || e.key === 'J') UI.questLog(); if (e.key === 'l' || e.key === 'L') UI.logPanel(); if (e.key === 'Escape') UI.menu(); if (e.key === 'f' || e.key === 'F') { G.fast = !G.fast; UI.toast(G.fast ? '⏩ Fast animations' : '▶ Normal animations'); } });
   };
   G.moveDir = (dx, dy) => {
     if (!G.map || UI.modalOpen() || UI.throwPending) return; const l = G.leader(); if (!l) return;
@@ -189,7 +196,7 @@
   G.tryInteract = (p) => { if (p && p.fn) { p.fn(); return; } G.interact(p); };
   G.stepLeader = (nx, ny) => {
     const l = G.leader(); if (!l) return false; if (!World.passable(G.map, nx, ny)) return false; const occ = G.entityAt(nx, ny); if (occ && !occ.isParty) return false;
-    const prev = { x: l.x, y: l.y }; l.x = nx; l.y = ny; l.facing = nx - ny > prev.x - prev.y ? 'r' : 'l';
+    const prev = { x: l.x, y: l.y }; l.x = nx; l.y = ny; l.facing = nx - ny > prev.x - prev.y ? 'r' : 'l'; Renderer.camTarget = l; // moving recaptures a panned camera
     // followers trail
     let last = prev; for (const f of G.party.filter((p) => !p.dead && p !== l)) { if (U.dist(f.x, f.y, l.x, l.y) <= 1 && !(f.x === l.x && f.y === l.y)) { continue; } const fp = { x: f.x, y: f.y }; if (G.isFree(last.x, last.y) || (last.x === prev.x && last.y === prev.y)) { f.x = last.x; f.y = last.y; last = fp; } else { const path = U.astar(f.x, f.y, l.x, l.y, (x, y) => World.passable(G.map, x, y) && !(G.entityAt(x, y) && !G.entityAt(x, y).isParty), 30); if (path && path.length > 1) { const [sx, sy] = path[0]; if (!G.entityAt(sx, sy)) { f.x = sx; f.y = sy; } } } }
     AudioSys.play('step'); G.stepOn(l, nx, ny); G.updateVisibility(); G.updateContext();

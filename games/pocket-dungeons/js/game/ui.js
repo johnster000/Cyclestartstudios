@@ -9,7 +9,7 @@
     $('btn-menu').onclick = () => UI.menu(); $('btn-sheet').onclick = () => UI.characterSheet(Game.party[0]); $('btn-bag').onclick = () => UI.inventory(); $('btn-quests').onclick = () => UI.questLog(); $('btn-log').onclick = () => UI.logPanel();
     $('btn-continue').disabled = !Save.exists();
     Dice.on((rec) => { if (rec.type === 'd20' || rec.kind === 'dmg' || rec.kind === 'heal' || rec.kind === 'misc') UI.showRoll(rec); });
-    Dice3D.init($('dice-tray')); window.addEventListener('resize', UI._placeTray);
+    Dice3D.init($('dice-tray')); UI.applySpeed(); window.addEventListener('resize', UI._placeTray);
     $('roll-prompt').onclick = () => UI.doThrow(); // the tray itself handles press-drag-release; this is the 'just throw them' shortcut
   };
   // ---- Manual dice: the player throws. Game code awaits UI.awaitThrow(label) before rolling its own dice. ----
@@ -34,7 +34,7 @@
     UI.throwPending = null; Dice3D.onAllThrown = null;
     if (!Dice3D.allThrown()) Dice3D.throwRest();
     $('roll-prompt').classList.add('hidden'); $('dice-tray').classList.remove('armed');
-    UI.logHoldUntil = performance.now() + 2200; // the result reads out on the dice before the log line lands
+    UI.logHoldUntil = performance.now() + 300; // the log then waits for the table to be still (see UI.log)
     t.resolve(); return true;
   };
   // Dice for an expression like '2d6+3', so the tray puts the right dice in your hand.
@@ -42,7 +42,7 @@
   UI.cancelThrow = () => { if (UI.throwPending) UI.doThrow(); };
   UI.showTitle = () => { $('title').classList.remove('hidden'); $('hud').classList.add('hidden'); $('btn-continue').disabled = !Save.exists(); AudioSys.music('title'); };
   UI.hideTitle = () => { $('title').classList.add('hidden'); $('hud').classList.remove('hidden'); };
-  UI.toast = (text, cls) => { const t = el('div', { class: 'toast ' + (cls || '') + (UI.modalOpen() ? ' low' : ''), html: text }); $('app').appendChild(t); setTimeout(() => t.remove(), 2500); };
+  UI.toast = (text, cls) => UI.afterDice(() => { const t = el('div', { class: 'toast ' + (cls || '') + (UI.modalOpen() ? ' low' : ''), html: text }); $('app').appendChild(t); setTimeout(() => t.remove(), 2500); });
   // Log lines are held back briefly after a throw so the dice land before the result text appears
   UI.logHoldUntil = 0; UI._logQ = []; UI._logT = null;
   UI._logHistory = []; // {text, kind}: kept for the log panel, nothing is drawn over the map
@@ -77,13 +77,29 @@
     UI._logRefresh = () => { if (UI._logOpen) render(); };
     render();
   };
-  UI._flushLog = () => { UI._logT = null; const q = UI._logQ; UI._logQ = []; for (const [t, k] of q) UI._appendLog(t, k); };
-  UI.log = (text, kind) => { const now = performance.now(); if (now < UI.logHoldUntil || UI._logQ.length) { UI._logQ.push([text, kind]); if (!UI._logT) UI._logT = setTimeout(UI._flushLog, Math.max(0, UI.logHoldUntil - now)); return; } UI._appendLog(text, kind); };
+  // Nothing is reported while dice are still moving: lines wait until the table is still, then land in order.
+  UI._pumpLog = () => { UI._logT = null; if (UI.diceBusy() || performance.now() < UI.logHoldUntil) { UI._logT = setTimeout(UI._pumpLog, 60); return; } while (UI._logQ.length) { const [t, k] = UI._logQ.shift(); UI._appendLog(t, k); } };
+  UI.log = (text, kind) => { UI._logQ.push([text, kind]); if (!UI._logT) UI._pumpLog(); };
+  // Run fn once the dice have come to a complete stop and read out (at once if nothing is rolling).
+  UI.afterDice = (fn) => { if (!UI.diceBusy()) { fn(); return; } const tick = () => { if (UI.diceBusy()) { setTimeout(tick, 60); return; } fn(); }; setTimeout(tick, 60); };
+  // Combat speed: Slow stretches the dice read-out and the pauses between actions, Fast hurries both.
+  UI.SPEEDS = { slow: { name: 'Slow', f: 0.7 }, normal: { name: 'Normal', f: 1 }, fast: { name: 'Fast', f: 1.8 } };
+  UI.speed = () => { const s = Save.settings().speed; return UI.SPEEDS[s] ? s : 'normal'; };
+  UI.speedFactor = () => UI.SPEEDS[UI.speed()].f;
+  UI.applySpeed = () => { Dice3D.speed = UI.speedFactor(); };
   UI.setLocation = (t) => { $('location-label').textContent = t; };
   UI.turnBanner = (t) => { const b = $('turn-banner'); if (!t) b.classList.add('hidden'); else { b.textContent = t; b.classList.remove('hidden'); } };
   // Dice tray: animate the dice of a roll record
   // If the player threw the dice themselves, give those dice their numbers; otherwise the house throws.
-  UI.showRoll = (rec) => { if (rec.type !== 'd20' && !rec.rolls.length) return; if (Dice3D.phase === 'throw' && !Dice3D.rec) { Dice3D.bind(rec); return; } Dice3D.roll(rec); AudioSys.play('dice'); };
+  UI._rollQ = []; UI._rollT = null;
+  // One roll on the table at a time: a roll that arrives while another is still reading out waits its turn.
+  UI.showRoll = (rec) => {
+    if (rec.type !== 'd20' && !rec.rolls.length) return;
+    if (Dice3D.phase === 'throw' && !Dice3D.rec) { Dice3D.bind(rec); return; }
+    if (!Game.fast && (Dice3D.busy() || UI._rollQ.length)) { UI._rollQ.push(rec); if (!UI._rollT) UI._rollT = setTimeout(UI._nextRoll, 60); return; }
+    Dice3D.roll(rec); AudioSys.play('dice'); UI.logHoldUntil = Math.max(UI.logHoldUntil, performance.now() + 1100); // the text lands after the dice do
+  };
+  UI._nextRoll = () => { UI._rollT = null; if (!UI._rollQ.length) return; if (Dice3D.busy()) { UI._rollT = setTimeout(UI._nextRoll, 60); return; } const rec = UI._rollQ.shift(); Dice3D.roll(rec); AudioSys.play('dice'); UI.logHoldUntil = Math.max(UI.logHoldUntil, performance.now() + 1100); if (UI._rollQ.length) UI._rollT = setTimeout(UI._nextRoll, 60); };
   // Party cards
   UI.refreshParty = () => {
     const bar = $('party-bar'); bar.innerHTML = '';
@@ -113,7 +129,7 @@
   };
   // ---- Modal framework ----
   // Dialogs never interrupt a roll: a modal opened while dice are tumbling stays hidden until they land.
-  UI.diceBusy = () => !Game.fast && Dice3D.busy();
+  UI.diceBusy = () => !Game.fast && (Dice3D.busy() || UI._rollQ.length > 0);
   // Resolves once the tray has come to rest, so nothing rolls over a result you have not read.
   UI.waitForDice = () => new Promise((res) => { const tick = () => { if (!UI.diceBusy()) { res(); return; } setTimeout(tick, 60); }; tick(); });
   UI._syncLayer = () => {
@@ -351,13 +367,23 @@
   UI.riddle = (puzzle, onAnswer) => { const r = puzzle.riddle; const wrong = puzzle.wrong || []; const opts = r.options.map((o, i) => ({ text: o, i })).filter((o) => !wrong.includes(o.i)); UI.dialogue('The statue speaks', null, '"' + r.q + '"' + (wrong.length ? '<br><br><i>Already tried: ' + wrong.map((i) => r.options[i]).join(', ') + '.</i>' : ''), opts.map((o) => ({ text: o.text, fn: () => onAnswer(o.i === r.correct, o.i) }))); };
   UI.dungeonSummary = (s, onDone) => { UI.modal({ title: s.victory ? '🏆 Dungeon Complete' : 'Retreat', sub: s.name, noClose: true, body: (b) => { b.appendChild(el('p', { class: 'narr', text: s.flavor })); const t = el('table', { class: 'stat-table' }); const row = (k, v) => t.appendChild(el('tr', {}, [el('td', { text: k }), el('td', { text: String(v) })])); row('Time', Math.floor(s.seconds / 60) + 'm ' + (s.seconds % 60) + 's'); row('Monsters defeated', s.kills); row('Gold found', s.gold); row('XP earned', s.xp); row('Rooms explored', s.rooms); row('Secrets found', s.secrets); if (s.twist) t.appendChild(el('tr', {}, [el('td', { text: 'Twist' }), el('td', { text: s.twist, style: 'text-align:left;color:#d9c4ff;font-weight:400' })])); b.appendChild(t); }, buttons: [{ label: 'Return to town', cls: 'primary', fn: onDone }] }); };
   UI.gameOver = (onDone) => { UI.modal({ title: 'Darkness…', noClose: true, body: (b) => { b.appendChild(el('p', { class: 'narr', text: 'The last thing you see is the ceiling. The next thing you see is the ceiling of the Rusty Flagon, and Wren Ashby\'s unimpressed face. "You owe me for the cart," she says. "And a quarter of your purse went to the healer. Try not to die again before lunch."' })); }, buttons: [{ label: 'Wake up', cls: 'primary', fn: onDone }] }); };
-  UI.menu = () => { UI.modal({ title: 'Menu', body: (b) => { b.appendChild(el('div', { class: 'choices' }, [el('button', { text: (AudioSys.muted ? '🔇 Unmute' : '🔊 Mute') + ' sound', onclick: () => { AudioSys.init(); AudioSys.setMuted(!AudioSys.muted); UI.closeModal(); UI.menu(); } }), el('button', { text: '🎲 Manual dice rolls: ' + (UI.manualDice() ? 'On' : 'Off'), onclick: () => { Save.setSetting('manualDice', !UI.manualDice()); UI.closeModal(); UI.menu(); } }), el('button', { text: '📖 How to play', onclick: () => { UI.closeModal(); UI.howToPlay(); } }), el('button', { text: '💾 Save game' + (Game.state.location === 'dungeon' ? ' (returns you to town on reload)' : ''), onclick: () => { Game.save(true); UI.closeModal(); } }), el('button', { text: '🏠 Quit to title', onclick: () => UI.confirm('Progress is saved when you rest, finish a dungeon, or use Save. Quit now?', () => { UI.closeAll(); Game.quitToTitle(); }) })])); } }); };
+  UI.menu = () => { UI.modal({ title: 'Menu', body: (b) => { b.appendChild(el('div', { class: 'choices' }, [el('button', { text: (AudioSys.muted ? '🔇 Unmute' : '🔊 Mute') + ' sound', onclick: () => { AudioSys.init(); AudioSys.setMuted(!AudioSys.muted); UI.closeModal(); UI.menu(); } }), el('button', { text: '🎲 Manual dice rolls: ' + (UI.manualDice() ? 'On' : 'Off'), onclick: () => { Save.setSetting('manualDice', !UI.manualDice()); UI.closeModal(); UI.menu(); } }), el('button', { text: '⏱ Combat speed: ' + UI.SPEEDS[UI.speed()].name, onclick: () => { const order = ['slow', 'normal', 'fast']; Save.setSetting('speed', order[(order.indexOf(UI.speed()) + 1) % 3]); UI.applySpeed(); UI.closeModal(); UI.menu(); } }), el('button', { text: '🎲 Dice set: ' + Dice3D.skin().name, onclick: () => { UI.closeModal(); UI.dicePicker(); } }), el('button', { text: '📖 How to play', onclick: () => { UI.closeModal(); UI.howToPlay(); } }), el('button', { text: '💾 Save game' + (Game.state.location === 'dungeon' ? ' (returns you to town on reload)' : ''), onclick: () => { Game.save(true); UI.closeModal(); } }), el('button', { text: '🏠 Quit to title', onclick: () => UI.confirm('Progress is saved when you rest, finish a dungeon, or use Save. Quit now?', () => { UI.closeAll(); Game.quitToTitle(); }) })])); } }); };
+  // Pick a dice set: a still of each set, the current one highlighted.
+  UI.dicePicker = () => {
+    const cur = Save.settings().diceSkin || 'gilded';
+    const m = UI.modal({ title: 'Your dice', sub: 'Every roll in the game uses the set you pick.', wide: true, body: (b) => {
+      const g = el('div', { class: 'grid3' });
+      for (const [id, sk] of Object.entries(Dice3D.SKINS)) { const c = document.createElement('canvas'); c.width = 112; c.height = 96; Dice3D.preview(c, id); g.appendChild(el('div', { class: 'opt dice-opt' + (id === cur ? ' sel' : ''), onclick: () => { Save.setSetting('diceSkin', id); AudioSys.play('click'); UI.closeModal(m); UI.dicePicker(); } }, [c, el('h4', { text: sk.name }), el('p', { text: sk.desc })])); }
+      b.appendChild(g);
+    } });
+  };
   UI.howToPlay = () => { UI.modal({ title: 'How to Play', body: `<p><b>Goal:</b> Wake up, find out who robbed you of three days, and roll a lot of dice doing it. Each dungeon is a complete 15–20 minute adventure.</p>
 <h3>Moving</h3><p>Tap or click a tile to walk there. Use the arrow pad or <kbd>WASD</kbd>/arrow keys for single steps. Pinch, scroll, or press <kbd>+</kbd>/<kbd>-</kbd> to zoom; <kbd>Q</kbd>/<kbd>E</kbd> or the ⟲⟳ buttons rotate the view.</p>
 <h3>Interacting</h3><p>Nothing happens by accident: bumping into a chest, a lever or a person does nothing. <b>Tap the thing itself</b> and your party walks over and uses it. Anything you can use from where you stand glows gold and gets a button bottom-left. Doors are the exception — walk into an open doorway and you go through it. <kbd>&lt;</kbd> steps out through the nearest door, <kbd>&gt;</kbd> steps in (or down into a dungeon).</p>
 <h3>Town</h3><p>Every building can be walked into. Shops, the temple and the guild hall are rooms with someone behind the counter — tap them across the counter to trade, pray or hire. Cottages have people in them too, and they have opinions.</p>
 <h3>Dice</h3><p>Everything is a roll: <b>d20 + modifier vs. a target number</b>. A natural 20 is a critical hit (double damage dice); a natural 1 is a fumble. Skill checks and saving throws work the same way against a Difficulty Class (DC).</p>
-<h3>Throwing them</h3><p>You throw the dice yourself: <b>press a die, drag it anywhere, and flick</b>. It leaves your hand with the speed of your drag and really does tumble across the screen until it stops — throw hard and it rattles off the edges. When a roll needs more than one die (advantage, a fistful of damage dice) you can throw each one separately, or hit <b>Throw all</b> to send them together.</p><p>Each die stamps its number as it lands and adds itself to your running total. Then your modifier flies in, and finally your total (green) and the number you had to beat (red) collide into <b>PASS</b>, <b>FAIL</b>, <b>CRITICAL!</b> or <b>FUMBLE!</b>. Prefer it done for you? Turn <i>Manual dice rolls</i> off in the menu, or press <kbd>F</kbd> for fast animations.</p>
+<h3>Throwing them</h3><p>You throw the dice yourself: <b>press a die, drag it anywhere, and flick</b>. It leaves your hand with the speed of your drag and really does tumble across the screen until it stops — throw hard and it rattles off the edges. When a roll needs more than one die (advantage, a fistful of damage dice) you can throw each one separately, or hit <b>Throw all</b> to send them together.</p><p>Each die stamps its number as it lands and adds itself to your running total. Then your modifier flies in, and finally your total (green) and the number you had to beat (red) collide into <b>PASS</b>, <b>FAIL</b>, <b>CRITICAL!</b> or <b>FUMBLE!</b>. Once you have read the result, <b>tap anywhere</b> (or press <kbd>Space</kbd>) to move on. Nothing else happens until the dice have stopped dead: no text, no damage, no next turn. The menu lets you pick a <b>dice set</b> (dragon, fire, ice, acid and more) and a <b>combat speed</b>: Slow, Normal or Fast. Prefer it done for you? Turn <i>Manual dice rolls</i> off in the menu, or press <kbd>F</kbd> for fast animations.</p>
+<h3>One thing at a time</h3><p>In combat every roll plays out before the next thing happens: the dice land, the number reads out, and only then does the hit, the damage or the save follow. The banner at the top names whose turn it is, monsters included, and the log keeps the full order of events.</p>
 <h3>One attempt each</h3><p>You do not get to re-roll a check until it passes. A locked chest, a stuck door, a search of one spot, a riddle: <b>each character gets one try</b>, and the next one has to step up. When the whole party has failed, that approach is spent — but you are never stuck: a door can be battered down and a chest levered open, both loudly and at a cost.</p>
 <h3>Combat</h3><p>When monsters spot you, everyone rolls <b>initiative</b> (d20 + Dex). On your turn you get <b>Movement</b> (speed ÷ 5 tiles), one <b>Action</b> (Attack, Cast, Dash, Dodge, Disengage, Item…) and one <b>Bonus Action</b> (class features like Rage, Second Wind, Cunning Action, Healing Word). Leaving an enemy's reach provokes an <b>opportunity attack</b> unless you Disengage. Tap <b>Attack</b> then tap an enemy; tap <b>Move</b> then a highlighted tile.</p>
 <h3>Getting hurt</h3><p>At 0 HP you fall unconscious and roll <b>death saves</b> each turn (10+ succeeds; three failures and you die; a natural 20 gets you up). Healing wakes you. If the whole party falls, Wren drags you back to the tavern, minus a quarter of your gold.</p>

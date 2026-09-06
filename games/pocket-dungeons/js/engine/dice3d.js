@@ -7,9 +7,9 @@
    As each die lands its number pops and adds to a running total; then the modifier flies in, and finally the total
    (green) and the number you had to beat (red) collide into a pass / fail / critical verdict. */
 (function () {
-  const D = { canvas: null, g: null, dice: [], W: 0, H: 0, active: false, last: 0, phase: 'off', bounds: null };
+  const D = { canvas: null, g: null, dice: [], W: 0, H: 0, active: false, last: 0, phase: 'off', bounds: null, speed: 1 };
   const THROW = { scale: 0.55, min: 5, max: 26, lift: 0.22 }; // drag pixels/sec -> table units/sec, and how much a fast throw hops
-  const REV = { pop: 0.5, mod: 0.26, modEnd: 0.92, vs: 1.04, hit: 1.34, verdict: 1.48, hold: 2.5, plain: 1.4 }, QUICK = 0.5;
+  const REV = { pop: 0.5, mod: 0.26, modEnd: 0.92, vs: 1.04, hit: 1.34, verdict: 1.48, hold: 1.8, plain: 1.0 }, QUICK = 0.5;
   // ---- math ----
   const qmul = (a, b) => [a[0] * b[0] - a[1] * b[1] - a[2] * b[2] - a[3] * b[3], a[0] * b[1] + a[1] * b[0] + a[2] * b[3] - a[3] * b[2], a[0] * b[2] - a[1] * b[3] + a[2] * b[0] + a[3] * b[1], a[0] * b[3] + a[1] * b[2] - a[2] * b[1] + a[3] * b[0]];
   const qnorm = (q) => { const l = Math.hypot(q[0], q[1], q[2], q[3]) || 1; return q.map((v) => v / l); };
@@ -24,7 +24,7 @@
     if (sides === 4) { V = [[1, 1, 1], [1, -1, -1], [-1, 1, -1], [-1, -1, 1]].map((v) => v.map((x) => x * 0.8)); F = [[0, 1, 2], [0, 3, 1], [0, 2, 3], [1, 3, 2]]; }
     else if (sides === 6) { V = []; for (const x of [-1, 1]) for (const y of [-1, 1]) for (const z of [-1, 1]) V.push([x * 0.72, y * 0.72, z * 0.72]); F = [[0, 1, 3, 2], [4, 6, 7, 5], [0, 4, 5, 1], [2, 3, 7, 6], [0, 2, 6, 4], [1, 5, 7, 3]]; }
     else if (sides === 8) { V = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]].map((v) => v.map((x) => x * 1.05)); F = [[0, 2, 4], [2, 1, 4], [1, 3, 4], [3, 0, 4], [2, 0, 5], [1, 2, 5], [3, 1, 5], [0, 3, 5]]; }
-    else if (sides === 10) { V = [[0, 1.15, 0], [0, -1.15, 0]]; for (let i = 0; i < 10; i++) { const a = i * Math.PI / 5; V.push([Math.cos(a) * 0.95, (i % 2 ? 0.16 : -0.16), Math.sin(a) * 0.95]); } F = []; for (let i = 0; i < 10; i++) { const a = 2 + i, b = 2 + (i + 1) % 10, c = 2 + (i + 2) % 10; F.push(i % 2 === 0 ? [0, a, b, c] : [1, c, b, a]); } }
+    else if (sides === 10) { const c36 = Math.cos(Math.PI / 5), h = 0.12, H = h * (1 + c36) / (1 - c36); V = [[0, H, 0], [0, -H, 0]]; for (let i = 0; i < 10; i++) { const a = i * Math.PI / 5; V.push([Math.cos(a) * 0.95, (i % 2 ? h : -h), Math.sin(a) * 0.95]); } /* flat kites: apex height fixed by cos 36° */ F = []; for (let i = 0; i < 10; i++) { const a = 2 + i, b = 2 + (i + 1) % 10, c = 2 + (i + 2) % 10; F.push(i % 2 === 1 ? [0, a, b, c] : [1, c, b, a]); } } // top kites use the two raised belt corners (odd), bottom kites the lowered ones
     else if (sides === 12) { const p = (1 + Math.sqrt(5)) / 2, ip = 1 / p; V = []; for (const x of [-1, 1]) for (const y of [-1, 1]) for (const z of [-1, 1]) V.push([x, y, z]); for (const a of [-1, 1]) for (const b of [-1, 1]) { V.push([0, a * ip, b * p]); V.push([a * ip, b * p, 0]); V.push([a * p, 0, b * ip]); } V = V.map((v) => v.map((x) => x * 0.62)); F = facesFromHull(V, 5); }
     else { const p = (1 + Math.sqrt(5)) / 2; V = []; for (const a of [-1, 1]) for (const b of [-1, 1]) { V.push([0, a, b * p]); V.push([a, b * p, 0]); V.push([b * p, 0, a]); } V = V.map((v) => v.map((x) => x * 0.62)); F = facesFromHull(V, 3); }
     // enforce outward winding for every face
@@ -177,7 +177,10 @@
   D.roll = (rec) => {
     fit(); const list = valueList(rec); if (!list.length) return;
     const slots = handSlots(list.length);
-    D.dice = list.map((v, i) => { const d = makeDie(v.sides, v.kind, slots[i]); Object.assign(d, { value: v.value, kept: v.kept, counts: v.counts }); launch(d, houseVel()); return d; });
+    // put the dice on the table first: launch() re-runs the joint run-ahead over D.dice, so a die launched before it is
+    // in that list would fly with no landing face computed
+    D.dice = list.map((v, i) => { const d = makeDie(v.sides, v.kind, slots[i]); Object.assign(d, { value: v.value, kept: v.kept, counts: v.counts }); return d; });
+    for (const d of D.dice) launch(d, houseVel());
     D.caption = rec.label || null; D.lastVel = null; D.phase = 'throw'; reset(rec.kind);
     D.rec = rec; D.quick = true; // the house threw these: read them out briskly
     D.revealEnd = (rec.vs !== undefined ? REV.hold : REV.plain) * QUICK;
@@ -191,6 +194,8 @@
     const grabbable = () => D.active && D.phase === 'ready' && !D.rec;
     const pick = (x, y) => { let best = null, bd = 1e9; for (const d of D.dice) { if (d.st !== 'hand') continue; const [sx, sy] = D.project(d.p); const dd = Math.hypot(sx - x, sy - y); if (dd < bd) { bd = dd; best = d; } } return bd < Math.max(56, (D.S || 30) * 1.6) ? best : null; };
     window.addEventListener('pointerdown', (e) => {
+      // a result you have finished reading: a tap anywhere sends it on its way (unless a dialog owns the screen)
+      if (!(window.UI && UI.modalOpen && UI.modalOpen()) && D.skip()) { e.preventDefault(); e.stopPropagation(); return; }
       if (!grabbable()) return; const d = pick(e.clientX, e.clientY); if (!d) return;
       e.preventDefault(); e.stopPropagation();
       drag = { d, id: e.pointerId, pts: [{ x: e.clientX, y: e.clientY, t: performance.now() }], moved: 0 }; d.st = 'held'; d.p[1] = 0.55; AudioSys.play('click');
@@ -225,12 +230,14 @@
   D.pin = () => { if (!D.showing()) return false; D.pinned = true; D.canvas.style.opacity = '1'; return true; };
   // Unpinning only restarts the fade-out; the result sequence itself never replays.
   D.unpin = () => { if (!D.pinned) return; D.pinned = false; if (D.active && D.settledAt !== null) D.fadeFrom = Math.max(D.fadeFrom || 0, D.t - (D.revealEnd || REV.plain)); };
+  // Skip ahead: once every die has landed, jump the read-out to its verdict and start the fade now. Returns whether it did.
+  D.skip = () => { if (!D.active || D.phase !== 'throw' || D.pinned || D.settledAt === null) return false; const end = D.revealEnd || REV.plain; if (D.t - D.settledAt >= end + 0.5) return false; D.settledAt = Math.min(D.settledAt, D.t - end); D.fadeFrom = Math.min(D.fadeFrom === null ? D.t : D.fadeFrom, D.t - end - 0.5); return true; };
   D.hide = () => { D.phase = 'off'; D.active = false; D.dice = []; D.canvas.style.opacity = '0'; };
   D.frame = (now) => {
-    requestAnimationFrame(D.frame); if (!D.active) return; const g = D.g; const dt = Math.min(0.05, (now - D.last) / 1000); D.last = now; D.t += dt;
+    requestAnimationFrame(D.frame); if (!D.active) return; const g = D.g; const dt = Math.min(0.05, (now - D.last) / 1000); D.last = now; D.t += dt * D.speed; // D.t is the read-out clock: Fast hurries it, Slow stretches it
     // the result panel slides when a dialog asks for room
     const want = D.panelTopTarget === null ? D.rect.y0 : D.panelTopTarget; if (D.panelTop === null) D.panelTop = want; else if (Math.abs(want - D.panelTop) > 0.5) D.panelTop += (want - D.panelTop) * Math.min(1, dt * 9); else D.panelTop = want;
-    D.acc = (D.acc || 0) + dt;
+    D.acc = (D.acc || 0) + dt * Math.max(1, D.speed); // dice tumble faster on Fast, never slower than real time
     while (D.acc >= DT) { D.acc -= DT; for (const d of worldStep(D.dice)) { d.landAt = D.t; if (d.counts) D.running += d.value; AudioSys.play('click'); } }
     const allSettled = D.phase === 'throw' && D.dice.length && D.dice.every((d) => d.settled);
     if (allSettled && D.settledAt === null) { D.settledAt = D.t; D.fadeFrom = D.t; if (D.rec && D.rec.nat20) AudioSys.play('crit'); else if (D.rec && D.rec.nat1) AudioSys.play('fumble'); }
@@ -273,29 +280,72 @@
     g.fillStyle = fill; g.fillText(text, 0, 0); g.restore();
   }
 
+  // ---- dice sets: colour, ink and a face motif; chosen in the menu, used by every roll ----
+  const SKINS = {
+    gilded: { name: 'Gilded', desc: 'Polished brass and dark ink.', base: '#e8c46a', ink: '#2a1a08', pattern: 'none' },
+    dragon: { name: 'Dragon', desc: 'Blood-red scales, gold numbers.', base: '#8a1a1a', ink: '#ffd76a', pattern: 'scales', glow: 'rgba(255,90,30,.28)' },
+    fire: { name: 'Fire', desc: 'Embers that never quite go out.', base: '#e0561c', ink: '#fff2c0', pattern: 'flames', glow: 'rgba(255,140,40,.42)' },
+    ice: { name: 'Ice', desc: 'Frost-cracked, cold to the touch.', base: '#9fd4f0', ink: '#10304a', pattern: 'frost', glow: 'rgba(160,220,255,.32)' },
+    acid: { name: 'Acid', desc: 'Bubbling green, faintly luminous.', base: '#5cb82a', ink: '#0c2a06', pattern: 'drips', glow: 'rgba(120,255,60,.34)' },
+    shadow: { name: 'Shadow', desc: 'Void-black with a violet halo.', base: '#2a1a3a', ink: '#d0a8ff', pattern: 'void', glow: 'rgba(150,80,255,.38)' },
+    bone: { name: 'Bone', desc: 'Carved ivory, a little worn.', base: '#e8dcc0', ink: '#4a3020', pattern: 'speckle' },
+  };
+  D.SKINS = SKINS;
+  D.skin = () => { let id = 'gilded'; try { id = (window.Save && Save.settings().diceSkin) || 'gilded'; } catch (e) {} return SKINS[id] || SKINS.gilded; };
+  const hash01 = (n) => { const x = Math.sin(n * 12.9898) * 43758.5453; return x - Math.floor(x); };
+  // A motif drawn inside one face (clipped to it): scales, wisps of flame, frost cracks, acid bubbles, a void, speckles.
+  function facePattern(g, skin, pts, cen, R, seed, fi) {
+    if (!skin.pattern || skin.pattern === 'none') return;
+    g.save(); g.beginPath(); pts.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.closePath(); g.clip();
+    const [cx, cy] = cen; const h = (i) => hash01(seed * 31 + fi * 7 + i);
+    switch (skin.pattern) {
+      case 'scales': { g.strokeStyle = 'rgba(0,0,0,.3)'; g.lineWidth = 1; const s = R * 0.22; for (let j = -3; j <= 3; j++) for (let i = -3; i <= 3; i++) { const x = cx + (i + (j % 2 ? 0.5 : 0)) * s, y = cy + j * s * 0.7; g.beginPath(); g.arc(x, y, s * 0.5, Math.PI * 0.15, Math.PI * 0.85); g.stroke(); } break; }
+      case 'flames': { g.lineCap = 'round'; for (let k = 0; k < 3; k++) { const ph = D.t * 5 + k * 2.1 + seed; const x0 = cx + (k - 1) * R * 0.28, y0 = cy + R * 0.45; g.strokeStyle = k === 1 ? 'rgba(255,240,150,.55)' : 'rgba(255,190,60,.45)'; g.lineWidth = R * 0.09; g.beginPath(); g.moveTo(x0, y0); g.quadraticCurveTo(x0 + Math.sin(ph) * R * 0.15, y0 - R * 0.35, x0 + Math.sin(ph * 1.3) * R * 0.1, y0 - R * (0.6 + 0.1 * Math.sin(ph * 0.7))); g.stroke(); } break; }
+      case 'frost': { g.strokeStyle = 'rgba(255,255,255,.6)'; g.lineWidth = 1; for (let k = 0; k < 5; k++) { const a = h(k) * Math.PI * 2, l = R * (0.25 + h(k + 9) * 0.35); g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx + Math.cos(a) * l, cy + Math.sin(a) * l); const mx = cx + Math.cos(a) * l * 0.55, my = cy + Math.sin(a) * l * 0.55; g.moveTo(mx, my); g.lineTo(mx + Math.cos(a + 0.9) * l * 0.25, my + Math.sin(a + 0.9) * l * 0.25); g.stroke(); } g.fillStyle = 'rgba(255,255,255,.75)'; g.beginPath(); g.arc(cx - R * 0.2, cy - R * 0.22, R * 0.06, 0, Math.PI * 2); g.fill(); break; }
+      case 'drips': { for (let k = 0; k < 3; k++) { const x = cx + (h(k) - 0.5) * R * 0.9, y = cy + (h(k + 5) - 0.5) * R * 0.9, r = R * (0.06 + h(k + 11) * 0.1); g.fillStyle = 'rgba(200,255,120,.5)'; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill(); g.fillStyle = 'rgba(20,80,10,.4)'; g.beginPath(); g.arc(x + r * 0.4, y + r * 0.4, r * 0.5, 0, Math.PI * 2); g.fill(); } break; }
+      case 'void': { const gr = g.createRadialGradient(cx, cy, R * 0.05, cx, cy, R * 0.75); gr.addColorStop(0, 'rgba(0,0,0,.6)'); gr.addColorStop(0.7, 'rgba(120,60,200,.15)'); gr.addColorStop(1, 'rgba(180,120,255,.5)'); g.fillStyle = gr; g.fillRect(cx - R, cy - R, R * 2, R * 2); break; }
+      case 'speckle': { g.fillStyle = 'rgba(120,80,40,.32)'; for (let k = 0; k < 4; k++) { g.beginPath(); g.arc(cx + (h(k) - 0.5) * R * 0.9, cy + (h(k + 7) - 0.5) * R * 0.9, R * 0.03 + h(k + 3) * R * 0.03, 0, Math.PI * 2); g.fill(); } break; }
+      default: break;
+    }
+    g.restore();
+  }
+  const LIGHT = norm([-0.4, 1, -0.5]);
+  // One die: drop shadow, halo, lit faces with the set's motif, numbers on the faces turned toward you.
+  function drawDie(g, d, S, proj, dimAll, skin, seed) {
+    const P = poly(d.sides); const base = skin.base, ink = skin.ink; const R = S * 0.95 * (d.sides === 4 ? 1.1 : 1) * (d.st === 'held' ? 1.12 : 1);
+    const dim = (d.st === 'rest' && D.rec && D.rec.type === 'd20' && !d.counts ? 0.55 : 1) * d.alpha * dimAll;
+    g.globalAlpha = dim;
+    const sh = proj([d.p[0], 0, d.p[2]]); g.fillStyle = 'rgba(0,0,0,' + (0.4 / (1 + d.p[1] * 0.6)).toFixed(2) + ')'; g.beginPath(); g.ellipse(sh[0], sh[1], R * 0.9 / (1 + d.p[1] * 0.15), R * 0.5 / (1 + d.p[1] * 0.15), 0, 0, Math.PI * 2); g.fill();
+    if (skin.glow) { const c = proj(d.p); const gr = g.createRadialGradient(c[0], c[1], R * 0.4, c[0], c[1], R * 1.7); gr.addColorStop(0, skin.glow); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.beginPath(); g.arc(c[0], c[1], R * 1.7, 0, Math.PI * 2); g.fill(); }
+    // waiting in your hand: a soft pulse so you know these are yours to throw
+    if (d.st === 'hand' && D.phase === 'ready') { const a = 0.35 + 0.3 * Math.sin(D.t * 4 + d.p[0]); const c = proj([d.p[0], 0, d.p[2]]); g.strokeStyle = 'rgba(255,224,122,' + a.toFixed(2) + ')'; g.lineWidth = 2; g.beginPath(); g.ellipse(c[0], c[1], R * 1.25, R * 0.7, 0, 0, Math.PI * 2); g.stroke(); }
+    const verts = P.V.map((v) => { const w = qrot(d.q, v); return [d.p[0] + w[0] * 0.95, d.p[1] + w[1] * 0.95, d.p[2] + w[2] * 0.95]; });
+    const faces = P.F.map((f, i) => { const n = faceNormal(P, f, d.q); const c = [0, 1, 2].map((a) => f.reduce((s, vi) => s + verts[vi][a], 0) / f.length); return { f, i, n, c, facing: n[1] * st + n[2] * ct, depth: c[1] * st + c[2] * ct }; }).filter((fc) => fc.facing > 0.02).sort((a, b) => a.depth - b.depth);
+    for (const fc of faces) {
+      const pts = fc.f.map((vi) => proj(verts[vi])); const lt = Math.max(0, dot(fc.n, LIGHT)); const shade = (0.55 + lt * 0.55) * (d.st === 'held' ? 1.15 : 1);
+      g.fillStyle = mixColor(base, shade); g.beginPath(); pts.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.closePath(); g.fill();
+      facePattern(g, skin, pts, proj(fc.c), R, seed, fc.i);
+      g.beginPath(); pts.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.closePath(); g.strokeStyle = 'rgba(0,0,0,.45)'; g.lineWidth = 1; g.stroke();
+      const facing = fc.facing; if (facing > 0.35 && d.labels) { const c = proj(fc.c); const lbl = d.labels[fc.i]; if (lbl === undefined) continue; const fs = Math.max(7, R * (d.sides >= 12 ? 0.42 : d.sides >= 8 ? 0.55 : 0.7)); g.save(); g.translate(c[0], c[1]); g.scale(1, Math.max(0.35, facing)); g.font = NUMF(fs); g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = ink; g.globalAlpha = dim * Math.min(1, facing * 1.4); g.fillText(String(lbl) + ((lbl === 6 || lbl === 9) && d.sides >= 10 ? '.' : ''), 0, 1); g.globalAlpha = dim; g.restore(); }
+    }
+    if (d.st === 'rest' && (d.kind === 'crit' || d.kind === 'fumble')) { const c = proj(d.p); g.strokeStyle = (d.kind === 'crit' ? 'rgba(255,224,122,' : 'rgba(255,90,90,') + (0.5 + 0.5 * Math.sin(D.t * 10)) + ')'; g.lineWidth = 2; g.beginPath(); g.arc(c[0], c[1], R * 1.3, 0, Math.PI * 2); g.stroke(); }
+    g.globalAlpha = 1;
+  }
+  // A still of one d20 in a given set, for the picker in the menu.
+  D.preview = (canvas, skinId) => {
+    const skin = SKINS[skinId] || SKINS.gilded; const g = canvas.getContext('2d'); const W = canvas.width, H = canvas.height; g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, W, H);
+    const S = Math.min(W, H) / 3.2; const proj = (p) => [W / 2 + p[0] * S, H * 0.6 + (p[2] * st - p[1] * ct) * S];
+    const die = { sides: 20, kind: 'd20', value: 20, p: [0, 0, 0], q: qnorm([0.82, 0.32, 0.4, 0.2]), st: 'rest', alpha: 1, counts: true, labels: null };
+    die.faceIdx = snap(die); labelFaces(die, die.faceIdx); drawDie(g, die, S, proj, 1, skin, 3);
+  };
+
   D.draw = () => {
     const g = D.g; g.setTransform(D.dpr, 0, 0, D.dpr, 0, 0); g.clearRect(0, 0, D.W, D.H);
     const S = layout(); const proj = D.project;
-    const light = norm([-0.4, 1, -0.5]);
     const dimAll = D.pinned ? 0.35 : 1; // a dialog is up: the dice step back, the verdict stays crisp
+    const skin = D.skin();
     const order = D.dice.slice().sort((a, b) => a.p[2] - b.p[2]);
-    for (const d of order) {
-      const P = poly(d.sides); const [base, ink] = COLORS[d.kind] || COLORS.misc; const R = S * 0.95 * (d.sides === 4 ? 1.1 : 1) * (d.st === 'held' ? 1.12 : 1);
-      const dim = (d.st === 'rest' && D.rec && D.rec.type === 'd20' && !d.counts ? 0.55 : 1) * d.alpha * dimAll;
-      g.globalAlpha = dim;
-      const sh = proj([d.p[0], 0, d.p[2]]); g.fillStyle = 'rgba(0,0,0,' + (0.4 / (1 + d.p[1] * 0.6)).toFixed(2) + ')'; g.beginPath(); g.ellipse(sh[0], sh[1], R * 0.9 / (1 + d.p[1] * 0.15), R * 0.5 / (1 + d.p[1] * 0.15), 0, 0, Math.PI * 2); g.fill();
-      // waiting in your hand: a soft pulse so you know these are yours to throw
-      if (d.st === 'hand' && D.phase === 'ready') { const a = 0.35 + 0.3 * Math.sin(D.t * 4 + d.p[0]); const c = proj([d.p[0], 0, d.p[2]]); g.strokeStyle = 'rgba(255,224,122,' + a.toFixed(2) + ')'; g.lineWidth = 2; g.beginPath(); g.ellipse(c[0], c[1], R * 1.25, R * 0.7, 0, 0, Math.PI * 2); g.stroke(); }
-      const verts = P.V.map((v) => { const w = qrot(d.q, v); return [d.p[0] + w[0] * 0.95, d.p[1] + w[1] * 0.95, d.p[2] + w[2] * 0.95]; });
-      const faces = P.F.map((f, i) => { const n = faceNormal(P, f, d.q); const c = [0, 1, 2].map((a) => f.reduce((s, vi) => s + verts[vi][a], 0) / f.length); return { f, i, n, c, facing: n[1] * st + n[2] * ct, depth: c[1] * st + c[2] * ct }; }).filter((fc) => fc.facing > 0.02).sort((a, b) => a.depth - b.depth);
-      for (const fc of faces) {
-        const pts = fc.f.map((vi) => proj(verts[vi])); const lt = Math.max(0, dot(fc.n, light)); const shade = (0.55 + lt * 0.55) * (d.st === 'held' ? 1.15 : 1);
-        g.fillStyle = mixColor(base, shade); g.beginPath(); pts.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.closePath(); g.fill(); g.strokeStyle = 'rgba(0,0,0,.45)'; g.lineWidth = 1; g.stroke();
-        const facing = fc.facing; if (facing > 0.35 && d.labels) { const c = proj(fc.c); const lbl = d.labels[fc.i]; if (lbl === undefined) continue; const fs = Math.max(7, R * (d.sides >= 12 ? 0.42 : d.sides >= 8 ? 0.55 : 0.7)); g.save(); g.translate(c[0], c[1]); g.scale(1, Math.max(0.35, facing)); g.font = NUMF(fs); g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = ink; g.globalAlpha = dim * Math.min(1, facing * 1.4); g.fillText(String(lbl) + ((lbl === 6 || lbl === 9) && d.sides >= 10 ? '.' : ''), 0, 1); g.globalAlpha = dim; g.restore(); }
-      }
-      if (d.st === 'rest' && d.kind === 'crit') { const c = proj(d.p); g.strokeStyle = 'rgba(255,224,122,' + (0.5 + 0.5 * Math.sin(D.t * 10)) + ')'; g.lineWidth = 2; g.beginPath(); g.arc(c[0], c[1], R * 1.3, 0, Math.PI * 2); g.stroke(); }
-      g.globalAlpha = 1;
-    }
+    order.forEach((d, i) => drawDie(g, d, S, proj, dimAll, skin, i));
     drawReveal(g, S, proj);
   };
 
@@ -366,9 +416,10 @@
     const px = Math.min(W * 0.13, 34) * (1 + 0.6 * (1 - vk));
     g.globalAlpha = Math.min(1, vk * 1.4);
     stamp(g, cx, vy, text, px, col, 'rgba(0,0,0,.95)', 1);
+    g.globalAlpha = Math.min(1, vk) * 0.7; g.font = '11px "Trebuchet MS", Verdana, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#cbbfa8'; g.fillText('tap to continue', cx, vy + 30);
     g.globalAlpha = 1;
   }
   function mixColor(hexc, m) { const c = hexc.replace('#', ''); const r = parseInt(c.slice(0, 2), 16), gg = parseInt(c.slice(2, 4), 16), b = parseInt(c.slice(4, 6), 16); const f = (v) => Math.max(0, Math.min(255, Math.round(v * m))); return 'rgb(' + f(r) + ',' + f(gg) + ',' + f(b) + ')'; }
-  D._upFace = upFace;
+  D._upFace = upFace; D._geom = (sides) => poly(sides);
   window.Dice3D = D;
 })();

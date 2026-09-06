@@ -13,9 +13,11 @@ pocket-dungeons johnster000/Pocket-dungeons .
 '
 
 tmp=""
+tmpthumb="$(mktemp)"
 if [ -z "${GAMES_SRC:-}" ]; then
-  tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
+  tmp="$(mktemp -d)"
 fi
+trap 'rm -rf "$tmp" "$tmpthumb"' EXIT
 
 echo "$GAMES" | while read -r slug repo sub; do
   [ -n "$slug" ] || continue
@@ -27,7 +29,11 @@ echo "$GAMES" | while read -r slug repo sub; do
     src="$GAMES_SRC/$name"
   fi
   dest="games/$slug"
+  # Keep the site's thumbnail; everything else is replaced.
+  thumb="$(ls "$dest"/thumb.* 2>/dev/null | head -n1 || true)"
+  [ -n "$thumb" ] && cp "$thumb" "$tmpthumb"
   rm -rf "$dest"; mkdir -p "$dest"
+  [ -n "$thumb" ] && cp "$tmpthumb" "$thumb"
   if [ "$sub" = "." ]; then
     # Pocket Dungeons: pure HTML at the repo root. Copy only what the page loads.
     cp "$src/index.html" "$src/manifest.webmanifest" "$dest/"
@@ -35,6 +41,5 @@ echo "$GAMES" | while read -r slug repo sub; do
   else
     cp -r "$src/$sub/." "$dest/"
   fi
-  # Keep the thumbnail the site generated, if there is one.
   echo "synced $slug  <- $repo/$sub  ($(git -C "$src" rev-parse --short HEAD))"
 done
