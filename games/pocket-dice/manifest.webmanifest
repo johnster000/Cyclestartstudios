@@ -1,0 +1,30 @@
+{
+  "name": "Pocket Dice",
+  "short_name": "Pocket Dice",
+  "description": "A realistic 3D dice tray. Add d4 through d20 and a percentile d100, pick a die up and flick it, and watch it tumble with real physics. Skins, sound, and shake-to-roll on phones.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0b0f14",
+  "theme_color": "#0b0f14",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

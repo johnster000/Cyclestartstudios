@@ -1,0 +1,15 @@
+Copyright (c) 2026 Cycle Start Studios. All rights reserved.
+
+The games and the website in this repository are published so they can be played
+for free at https://cyclestartstudios.com. They are not placed in the public
+domain and no open-source licence is granted.
+
+You may play the games. You may not copy, redistribute, rehost, republish,
+modify, reverse engineer, or create derivative works from any part of this
+repository, in whole or in part, without prior written permission.
+
+Third-party libraries included under games/*/js/vendor/ remain under their own
+licences (three.js and cannon-es, both MIT), and those licences are unaffected
+by the terms above.
+
+For permission requests, open an issue on this repository.

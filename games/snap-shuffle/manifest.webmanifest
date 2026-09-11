@@ -1,0 +1,30 @@
+{
+  "name": "Snap Shuffle",
+  "short_name": "Snap Shuffle",
+  "description": "A synthwave picture puzzle. A photo is cut into tiles and shuffled; drag tiles to swap them, and tiles that land beside their true neighbour fuse into one piece. Five grid sizes, a fresh picture every challenge. No ads, no purchases, no timers.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#120829",
+  "theme_color": "#120829",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

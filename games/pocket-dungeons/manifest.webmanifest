@@ -1,0 +1,30 @@
+{
+  "name": "Pocket Dungeons",
+  "short_name": "Pocket Dungeons",
+  "description": "A cozy turn-based isometric pixel-art RPG. Create a hero, wake up in a tavern with no memory, recruit companions and roll dice through a procedurally generated dungeon in about twenty minutes.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#1a1420",
+  "theme_color": "#1a1420",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

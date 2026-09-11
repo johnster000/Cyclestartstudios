@@ -1,0 +1,30 @@
+{
+  "name": "Neon Horde",
+  "short_name": "Neon Horde",
+  "description": "A synthwave lane-runner horde shooter. Steer your squad, pump bullets into math gates to grow it, and hold the line against endless waves. No ads, no purchases, no timers.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#120829",
+  "theme_color": "#120829",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "name": "Traffic Jam",
+  "short_name": "Traffic Jam",
+  "description": "A synthwave sliding-block puzzle. Your car is boxed into a six-by-six lot; slide the other cars and trucks along their lanes until the way to the exit is clear. Sixty levels from a warm-up to gridlock, a daily jam, and par to beat on every one. No ads, no purchases, no timers.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#120829",
+  "theme_color": "#120829",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

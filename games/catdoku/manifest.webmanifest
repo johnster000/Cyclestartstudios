@@ -1,0 +1,30 @@
+{
+  "name": "Catdoku",
+  "short_name": "Catdoku",
+  "description": "Two synthwave logic puzzles on one neon grid. Place exactly one cat in every row, column and region, or sweep for hidden cats in Catsweeper. Honest puzzles, free hints on the opening move.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#120829",
+  "theme_color": "#120829",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
