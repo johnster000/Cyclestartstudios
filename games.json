@@ -30,8 +30,8 @@
   {
     "slug": "pocket-dice",
     "title": "Pocket Dice",
-    "description": "A realistic 3D dice tray. Add d4 through d20 and a percentile d100, pick a die up and flick it, and watch it tumble with real physics. Skins, sound, and shake-to-roll on phones.",
+    "description": "A realistic 3D dice tray. Add d4 through d20 and a percentile d100, pick a die up and flick it, and watch it tumble with real physics. Nine skins with coloured trails, five felts, a movable dice panel, sound, and shake-to-roll on phones.",
     "thumbnail": "games/pocket-dice/thumb.png",
-    "controls": "Drag a die and flick to roll. Shake your phone to roll everything."
+    "controls": "Drag a die and flick to roll. Press and hold a rolled die to pick it up again, double-tap the felt to unlock them all, drag a die onto the trash can to remove it. Shake your phone to roll everything."
   }
 ]
