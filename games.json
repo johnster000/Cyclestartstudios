@@ -1,0 +1,51 @@
+[
+  {
+    "slug": "bloom",
+    "title": "Bloom",
+    "description": "Move, eat, grow.",
+    "thumbnail": "games/bloom/thumb.png?v=708d5efb",
+    "controls": ""
+  },
+  {
+    "slug": "pocket-dungeons",
+    "title": "Pocket Dungeons",
+    "description": "A cozy turn-based isometric pixel-art RPG. Create a hero, wake up in a tavern with no memory, recruit companions and roll dice through a procedurally generated dungeon in about twenty minutes.",
+    "thumbnail": "games/pocket-dungeons/thumb.png?v=4f7113d7",
+    "controls": "Mouse and keyboard, or touch with the on-screen d-pad."
+  },
+  {
+    "slug": "pocket-dice",
+    "title": "Pocket Dice",
+    "description": "A realistic 3D dice tray. Add d4 through d20 and a percentile d100, pick a die up and flick it, and watch it tumble with real physics. Skins, sound, and shake-to-roll on phones.",
+    "thumbnail": "games/pocket-dice/thumb.png?v=076a1e07",
+    "controls": "Drag a die and flick to roll. Shake your phone to roll everything."
+  },
+  {
+    "slug": "neon-horde",
+    "title": "Neon Horde",
+    "description": "A synthwave lane-runner horde shooter. Steer your squad, pump bullets into math gates to grow it, and hold the line against endless waves. No ads, no purchases, no timers.",
+    "thumbnail": "games/neon-horde/thumb.png?v=03c46cf8",
+    "controls": "Drag or use arrow keys to steer. Tap power-ups on the belt to fire them."
+  },
+  {
+    "slug": "catdoku",
+    "title": "Catdoku",
+    "description": "Two synthwave logic puzzles on one neon grid. Place exactly one cat in every row, column and region, or sweep for hidden cats in Catsweeper. Honest puzzles, free hints on the opening move.",
+    "thumbnail": "games/catdoku/thumb.png?v=c5767571",
+    "controls": "Tap to place a cat, hold to block a square."
+  },
+  {
+    "slug": "snap-shuffle",
+    "title": "Snap Shuffle",
+    "description": "A synthwave picture puzzle. A photo is cut into tiles and shuffled; drag tiles to swap them, and tiles that land beside their true neighbour fuse into one piece. Five grid sizes, a fresh picture every challenge. No ads, no purchases, no timers.",
+    "thumbnail": "games/snap-shuffle/thumb.png?v=1b2b03bb",
+    "controls": "Drag a tile onto another to swap them, or tap a tile then tap where it goes. Hold PEEK to see the picture."
+  },
+  {
+    "slug": "traffic-jam",
+    "title": "Traffic Jam",
+    "description": "A synthwave sliding-block puzzle. Your car is boxed into a six-by-six lot; slide the other cars and trucks along their lanes until the way to the exit is clear. Sixty levels from a warm-up to gridlock, a daily jam, and par to beat on every one. No ads, no purchases, no timers.",
+    "thumbnail": "games/traffic-jam/thumb.png?v=1988f6e1",
+    "controls": "Drag a vehicle along its lane, or tap it then tap where it should go. Arrow keys work too."
+  }
+]

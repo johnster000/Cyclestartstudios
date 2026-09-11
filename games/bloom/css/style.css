@@ -1,0 +1,100 @@
+@font-face { font-family: "Aurore"; src: url("../fonts/labelleaurore.woff2") format("woff2"); font-display: swap; }
+@font-face { font-family: "Dawning"; src: url("../fonts/dawning.woff2") format("woff2"); font-display: swap; }
+:root {
+  --ink: #eef6ff;
+  --dim: rgba(238, 246, 255, 0.55);
+  --line: rgba(238, 246, 255, 0.28);
+  --glow: rgba(176, 226, 255, 0.85);
+  --font: "Helvetica Neue", Helvetica, "Segoe UI", system-ui, sans-serif;
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+body, button, #hud { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: #0b1f44; color: var(--ink); font-family: var(--font); font-weight: 300; }
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+a { color: inherit; }
+
+#game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+
+/* Menus float over the water. */
+.screen {
+  position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 18px; padding: 24px 16px calc(24px + env(safe-area-inset-bottom)); text-align: center;
+  background: rgba(3, 10, 28, 0.3); overflow-y: auto;
+  transition: opacity 0.9s ease;
+}
+.screen[hidden] { display: none !important; }
+.screen.fade { opacity: 0; pointer-events: none; }
+.logo-link { display: block; line-height: 0; }
+.logo { width: min(34vw, 150px); height: auto; opacity: 0.95; filter: drop-shadow(0 0 6px var(--glow)) drop-shadow(0 0 18px rgba(176, 226, 255, 0.45)); }
+h2 { margin: 0; font-weight: 300; font-size: 28px; letter-spacing: 0.1em; }
+p { margin: 0; max-width: 32ch; color: var(--dim); line-height: 1.5; }
+
+/* Title: the ring sits at the exact centre of the screen, around the creature. */
+#scr-title { display: grid; grid-template-rows: 1fr auto 1fr; justify-items: center; gap: 0; background: rgba(3, 10, 28, 0.22); }
+#scr-title .logo-link { align-self: end; margin-bottom: clamp(24px, 6vh, 60px); }
+#scr-title .below { align-self: start; margin-top: clamp(24px, 6vh, 60px); display: flex; flex-direction: column; align-items: center; gap: 18px; }
+.mark { margin: 0; display: flex; justify-content: center; align-items: center; width: 100%; max-width: 900px; font-weight: 200; }
+.mark .side { display: flex; align-items: center; gap: 6px; }
+.mark .left { justify-content: end; }
+.mark .right { justify-content: start; }
+.mark .word { font-family: "Aurore", "Dawning", "Segoe Script", "Bradley Hand", cursive; font-size: clamp(56px, 13vw, 116px); letter-spacing: 0.02em; line-height: 1; text-shadow: 0 0 6px var(--ink), 0 0 22px var(--glow); }
+.mark .left .word { margin-right: -6px; }
+.mark .right .word { margin-left: -4px; }
+.mark .ring {
+  display: block; width: clamp(200px, 46vw, 320px); height: auto; overflow: visible; margin: 0 clamp(4px, 1vw, 10px);
+  animation: breathe 5s ease-in-out infinite;
+}
+.mark .ring path { fill: none; stroke: var(--ink); stroke-width: 3.2; stroke-linejoin: round; filter: drop-shadow(0 0 3px var(--ink)) drop-shadow(0 0 12px var(--glow)); }
+.mark .wave { width: clamp(60px, 14vw, 140px); height: auto; flex: 0 1 auto; overflow: visible; animation: sway 6s ease-in-out infinite; }
+.mark .right .wave { animation-delay: -3s; }
+.mark .wave path { fill: none; stroke: var(--ink); stroke-width: 2.2; stroke-linecap: round; filter: drop-shadow(0 0 2px var(--ink)) drop-shadow(0 0 8px var(--glow)); }
+.mark .side { position: relative; top: 0.04em; }
+@keyframes breathe { 50% { filter: drop-shadow(0 0 10px var(--glow)); } }
+@keyframes sway { 50% { transform: translateY(4px); } }
+@media (prefers-reduced-motion: reduce) { .mark .ring, .mark .wave { animation: none; } }
+
+.menu { display: flex; flex-direction: column; gap: 12px; }
+.btn {
+  min-width: 180px; padding: 12px 26px; border: 1px solid var(--line); border-radius: 999px;
+  letter-spacing: 0.08em; font-size: 15px; transition: background 0.15s, border-color 0.15s;
+}
+.btn:hover, .btn:focus-visible { background: rgba(238, 246, 255, 0.1); border-color: var(--ink); outline: none; }
+.donate { color: var(--dim); font-size: 14px; text-decoration: none; }
+.donate:hover { color: var(--ink); }
+@media (max-height: 560px) {
+  .menu { flex-direction: row; flex-wrap: wrap; justify-content: center; }
+  .btn { min-width: 0; padding: 9px 18px; font-size: 14px; }
+  #scr-title .logo-link, #scr-title .below { margin: 8px 0; }
+}
+
+/* Creature select */
+#creature-list { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; max-width: 760px; }
+.creature { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px; border: 1px solid var(--line); border-radius: 16px; width: 156px; letter-spacing: 0.08em; font-size: 14px; }
+.creature canvas { width: 140px; height: 70px; }
+.creature:hover:not(.locked) { background: rgba(238, 246, 255, 0.1); border-color: var(--ink); }
+.creature.locked { opacity: 0.45; cursor: default; }
+
+/* Help */
+#help-list { margin: 0; max-width: 46ch; text-align: left; display: grid; grid-template-columns: auto 1fr; gap: 10px 16px; align-items: baseline; }
+#help-list dt { letter-spacing: 0.08em; }
+#help-list dd { margin: 0; color: var(--dim); line-height: 1.45; font-size: 14px; }
+
+/* HUD */
+#hud { position: fixed; inset: 0; pointer-events: none; }
+#hud[hidden] { display: none; }
+#hud button { pointer-events: auto; }
+#depth-meter { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 6px; opacity: 0; transition: opacity 0.8s; }
+#depth-meter.show { opacity: 1; }
+#depth-meter i { width: 5px; height: 5px; border-radius: 50%; background: rgba(238, 246, 255, 0.2); transition: background 0.4s, box-shadow 0.4s; }
+#depth-meter i.on { background: var(--ink); box-shadow: 0 0 10px var(--ink); }
+.icon { position: absolute; top: calc(12px + env(safe-area-inset-top)); left: 14px; width: 44px; height: 44px; border-radius: 50%; opacity: 0.32; transition: opacity 0.3s; }
+.icon svg { width: 20px; height: 20px; fill: var(--ink); }
+.icon:hover, .icon:active { opacity: 0.7; }
+#toast { position: absolute; top: 18%; left: 0; right: 0; text-align: center; font-size: 22px; letter-spacing: 0.3em; opacity: 0; transition: opacity 0.8s; }
+#toast.show { opacity: 0.85; }
+#hint { position: absolute; bottom: calc(14% + env(safe-area-inset-bottom)); left: 0; right: 0; text-align: center; color: var(--dim); letter-spacing: 0.2em; font-size: 14px; opacity: 0; }
+
+#touch-controls { display: none; position: absolute; left: 14px; bottom: calc(18px + env(safe-area-inset-bottom)); }
+#touch-controls button { pointer-events: auto; touch-action: none; width: 64px; height: 64px; border-radius: 50%; color: var(--ink); font-size: 26px; opacity: 0.32; transition: opacity 0.2s, transform 0.2s; }
+#touch-controls button.held { opacity: 0.8; transform: scale(1.1); }
+body.touch #touch-controls { display: flex; }
