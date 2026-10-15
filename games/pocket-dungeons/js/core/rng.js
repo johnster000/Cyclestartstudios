@@ -1,0 +1,2 @@
+/*! Cycle Start Studios - https://cyclestartstudios.com - (c) 2026 Cycle Start Studios. All rights reserved. */
+!function(){function t(t){let e=t>>>0||2654435769;const h=()=>{e|=0,e=e+1831565813|0;let t=Math.imul(e^e>>>15,1|e);return t=t+Math.imul(t^t>>>7,61|t)^t,((t^t>>>14)>>>0)/4294967296};return h.int=(t,e)=>t+Math.floor(h()*(e-t+1)),h.pick=t=>t[Math.floor(h()*t.length)],h.chance=t=>h()<t,h.shuffle=t=>U.shuffle(t,h),h.seed=t,h}t.hash=t=>{let e=2166136261;for(let h=0;h<t.length;h++)e^=t.charCodeAt(h),e=Math.imul(e,16777619);return e>>>0},window.RNG=t}();

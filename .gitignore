@@ -1,0 +1,6 @@
+# Private maintenance notes, intentionally not published.
+MAINTENANCE.md
+
+# Build tooling, installed with `npm install`.
+node_modules/
+package-lock.json
