@@ -1,0 +1,30 @@
+{
+  "name": "Way Out",
+  "short_name": "Way Out",
+  "description": "A synthwave arrow puzzle. A board of any shape, packed edge to edge with tangled arrows; each one can only leave when its lane to the edge is clear, so they have to go in the right order. Sixty levels across thirteen shapes, a daily tangle, hearts to keep and stars to earn. No ads, no purchases, no timers.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#120829",
+  "theme_color": "#120829",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
