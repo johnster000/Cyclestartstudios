@@ -19,8 +19,14 @@ your browser, on a phone or a desktop. No ads, no purchases, no timers.
 | [Neon Serpent](https://cyclestartstudios.com/games/neon-serpent/) | A synthwave snake arena. |
 | [Buy Stove](https://cyclestartstudios.com/games/buy-stove/) | A first-person comedy about buying a stove. |
 
-Each game is developed in its own repository. This one holds the site itself and a copy of each game's
-playable web build.
+## Learn
+
+| App | What it is |
+|-----|------------|
+| [Allons-y!](https://cyclestartstudios.com/learn/allons-y/) | French practice for kids in Ontario French Immersion, Grades 1–8. |
+
+Each game and learning app is developed in its own repository. This one holds the site itself and a copy of each one's
+playable web build: games in `games/`, learning apps in `learn/`.
 
 ---
 

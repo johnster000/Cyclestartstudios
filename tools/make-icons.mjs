@@ -22,6 +22,7 @@
 // PWA_GAMES list in sync-games.sh - see MAINTENANCE.md.
 
 import { mkdir } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 
 // Design-time only, so playwright is not a dependency of the site build. It is
 // CommonJS and may sit in a global prefix, so resolve it the require() way -
@@ -117,6 +118,14 @@ const SKINS = {
     <g fill="rgba(255,255,255,.07)">${steps()}</g>
     ${place(glyph, ink, ink)}`,
 
+  // Allons-y!: a bright classroom blue - the one icon in the set made for kids.
+  school: (glyph, ink) => `
+    <defs><radialGradient id="c" cx="50%" cy="36%" r="74%">
+      <stop offset="0%" stop-color="#3d8ef0"/><stop offset="100%" stop-color="#1a56a8"/>
+    </radialGradient></defs>
+    <rect width="512" height="512" fill="url(#c)"/>
+    ${place(glyph, ink, ink)}`,
+
   // Buy Stove: the joke is that it is completely ordinary.
   flat: (glyph, ink, bg) => `
     <rect width="512" height="512" fill="${bg}"/>
@@ -206,6 +215,13 @@ const G = {
     <path d="M138 188 L256 256 L374 188" fill="none" stroke-width="26"/>
     <line x1="256" y1="256" x2="256" y2="392" stroke-width="26"/>`,
 
+  // A speech bubble saying "é": speaking French.
+  bubble: `
+    <path d="M150 128 H362 Q404 128 404 170 V302 Q404 344 362 344 H244 L172 404 V344 H150
+             Q108 344 108 302 V170 Q108 128 150 128 Z" fill="none" stroke-width="28"/>
+    <path d="M206 262 H306 A50 50 0 1 0 290 300" fill="none" stroke-width="26"/>
+    <line x1="242" y1="186" x2="274" y2="160" stroke-width="22"/>`,
+
   // A stove: one burner, one oven.
   stove: `
     <rect x="120" y="248" width="272" height="164" fill="none"/>
@@ -228,6 +244,7 @@ export const ICONS = {
   'bloom':           SKINS.abyss(G.creature,'#7fe8d8'),
   'buy-stove':       SKINS.flat(G.stove,    '#1d1d1f', '#e9e4da'),
   'voxterra':        SKINS.terra(G.cube,    '#f0b03c'),
+  'allons-y':        SKINS.school(G.bubble, '#fffaf3'),
 };
 
 const wrap = (body) => `<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">${body}</svg>`;
@@ -236,7 +253,9 @@ const want = process.argv.slice(2);
 const targets = want.length ? want : Object.keys(ICONS);
 for (const t of targets) if (!ICONS[t]) { console.error(`unknown game: ${t}`); process.exit(2); }
 
-const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+// Use the pinned Chromium when this container has it, otherwise Playwright's own.
+const PINNED = '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
+const browser = await chromium.launch(existsSync(PINNED) ? { executablePath: PINNED } : {});
 for (const slug of targets) {
   await mkdir(`pwa/${slug}`, { recursive: true });
   for (const size of [512, 192]) {

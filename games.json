@@ -82,5 +82,13 @@
     "description": "A first-person comedy in which you buy a stove, and then you have a stove. Walk around your kitchen, pick things up, throw them, and ignore a narrator who is not on your side. Eight endings to find.",
     "thumbnail": "games/buy-stove/thumb.png?v=9205f4a6",
     "controls": "WASD or arrows to walk, mouse to look, click to touch or throw, Esc to pause. On touch: left side to move, drag the right to look."
+  },
+  {
+    "slug": "allons-y",
+    "section": "learning",
+    "title": "Allons-y!",
+    "description": "Bite-sized French practice for kids in Ontario French Immersion, Grades 1 to 8. Listening, speaking, reading and writing lessons that follow the Ontario curriculum, with streaks, badges, a parent dashboard and no accounts.",
+    "thumbnail": "learn/allons-y/thumb.png?v=ae68ef47",
+    "controls": "Tap or click. Speaking exercises use the microphone (optional)."
   }
 ]

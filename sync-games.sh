@@ -1,10 +1,14 @@
 #!/usr/bin/env sh
-# Pull the latest web build of each game into games/<slug>/.
-# Usage: ./sync-games.sh   (or GAMES_SRC=/path/to/parent to use existing local clones)
+# Pull the latest web build of each game (and learning app) into <folder>/<slug>/.
+# Usage: ./sync-games.sh            sync everything
+#        ./sync-games.sh allons-y   sync only the slugs named (leaves the others untouched)
+#        GAMES_SRC=/path/to/parent ./sync-games.sh   use existing local clones
 set -eu
 cd "$(dirname "$0")"
 
-# slug | repo | subfolder inside the repo that holds the playable web build
+# slug | repo | subfolder inside the repo that holds the playable web build | site folder
+# The site folder is games/ unless a fourth column says otherwise: learn/ holds the
+# Learning section (games.json marks those entries with "section": "learning").
 GAMES='
 neon-horde      johnster000/Neon-Horde      www
 catdoku         johnster000/Catdoku         www
@@ -18,11 +22,22 @@ neon-serpent    johnster000/Snake-game     www
 bloom           johnster000/Flow           .
 buy-stove       johnster000/Buy-stove      .
 voxterra        johnster000/Collect-build  .
+allons-y        johnster000/Learn-french   www   learn
 '
 
 # Games published as installable, offline-capable apps. Adding one here is the
 # only switch: tools/make-icons.mjs has already drawn icons for every game.
-PWA_GAMES='neon-serpent neon-horde catdoku snap-shuffle traffic-jam way-out pocket-dungeons pocket-dice anvil-acre bloom buy-stove voxterra'
+PWA_GAMES='neon-serpent neon-horde catdoku snap-shuffle traffic-jam way-out pocket-dungeons pocket-dice anvil-acre bloom buy-stove voxterra allons-y'
+
+# Optional list of slugs to sync. Check them up front so a typo fails loudly
+# instead of silently syncing nothing.
+ONLY=" $* "
+for want in "$@"; do
+  if ! echo "$GAMES" | awk '{print $1}' | grep -qx "$want"; then
+    echo "ERROR: '$want' is not in the GAMES list in sync-games.sh." >&2
+    exit 1
+  fi
+done
 
 # The minifier is not optional. A missing node_modules used to only warn, and the
 # sync carried on and published the game unminified - with no canary, no
@@ -45,8 +60,11 @@ if [ -z "${GAMES_SRC:-}" ]; then
 fi
 trap 'rm -rf "$tmp" "$tmpthumb"' EXIT
 
-echo "$GAMES" | while read -r slug repo sub; do
+echo "$GAMES" | while read -r slug repo sub dir; do
   [ -n "$slug" ] || continue
+  if [ $# -gt 0 ]; then
+    case "$ONLY" in *" $slug "*) ;; *) continue ;; esac
+  fi
   name="$(echo "$repo" | cut -d/ -f2 | tr 'A-Z' 'a-z')"
   if [ -n "$tmp" ]; then
     src="$tmp/$name"
@@ -54,7 +72,7 @@ echo "$GAMES" | while read -r slug repo sub; do
   else
     src="$GAMES_SRC/$name"
   fi
-  dest="games/$slug"
+  dest="${dir:-games}/$slug"
   # Keep the site's thumbnail; everything else is replaced.
   thumb="$(ls "$dest"/thumb.* 2>/dev/null | head -n1 || true)"
   [ -n "$thumb" ] && cp "$thumb" "$tmpthumb"
