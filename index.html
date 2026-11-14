@@ -38,8 +38,20 @@
     .social a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
     .social svg { width: 22px; height: 22px; display: block; }
     main { max-width: 1100px; margin: 0 auto; padding: 2rem 1rem 4rem; }
-    h2 { font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; font-size: 0.95rem;
-      color: var(--accent); border-bottom: 1px solid var(--border); padding-bottom: 0.6rem; }
+    /* Category tabs (Games, Learning). Same type as the old section headings. */
+    .tabs { display: flex; gap: 0.25rem; border-bottom: 1px solid var(--border); }
+    .tab { all: unset; cursor: pointer; display: inline-flex; align-items: center; gap: 0.55rem;
+      padding: 0.75rem 1.1rem; margin-bottom: -1px; border-bottom: 2px solid transparent;
+      font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; font-size: 0.95rem;
+      color: var(--muted); transition: color .15s ease, border-color .15s ease; }
+    .tab[hidden] { display: none; }
+    .tab:hover { color: var(--text); }
+    .tab[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); }
+    .tab:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 8px 8px 0 0; }
+    .tab .count { font-size: 0.72rem; letter-spacing: 0; line-height: 1; padding: 0.2rem 0.45rem;
+      border: 1px solid var(--border); border-radius: 999px; color: var(--muted); }
+    .tab[aria-selected="true"] .count { border-color: var(--accent); color: var(--accent); }
+    @media (max-width: 520px) { .tab { flex: 1; justify-content: center; padding: 0.75rem 0.5rem; } }
     .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1.25rem; margin-top: 1.5rem; }
     .card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; overflow: hidden;
       display: flex; flex-direction: column; transition: transform .15s ease, border-color .15s ease; }
@@ -51,8 +63,7 @@
     .card .controls { font-size: 0.8rem; color: var(--accent); }
     .card .play { margin-top: 0.6rem; align-self: flex-start; background: var(--accent); color: #000;
       font-weight: 700; padding: 0.45rem 1rem; border-radius: 999px; font-size: 0.85rem; }
-    section + section { margin-top: 3rem; }
-    .lede { color: var(--muted); margin: 0.9rem 0 0; font-size: 0.95rem; }
+    .lede { color: var(--muted); margin: 1.1rem 0 0; font-size: 0.95rem; }
     .empty { color: var(--muted); text-align: center; padding: 3rem 1rem; border: 1px dashed var(--border); border-radius: 12px; }
     footer { text-align: center; color: var(--muted); font-size: 0.8rem; padding: 2rem 1rem; border-top: 1px solid var(--border); }
   </style>
@@ -82,16 +93,21 @@
   </header>
 
   <main>
-    <section aria-labelledby="games-title">
-      <h2 id="games-title">Games</h2>
+    <!-- One tab per category. A tab appears once games.json has an entry for it;
+         #learning in the URL opens that tab directly. -->
+    <div class="tabs" role="tablist" aria-label="Categories">
+      <button class="tab" type="button" role="tab" id="tab-games" data-section="games"
+              aria-controls="panel-games" aria-selected="true">Games <span class="count" hidden></span></button>
+      <button class="tab" type="button" role="tab" id="tab-learning" data-section="learning"
+              aria-controls="panel-learning" aria-selected="false" tabindex="-1" hidden>Learning <span class="count" hidden></span></button>
+    </div>
+    <div role="tabpanel" id="panel-games" aria-labelledby="tab-games">
       <div id="games" class="grid" aria-live="polite"></div>
-    </section>
-    <!-- Shown once games.json lists an entry with "section": "learning". -->
-    <section id="learning-section" aria-labelledby="learning-title" hidden>
-      <h2 id="learning-title">Learning</h2>
+    </div>
+    <div role="tabpanel" id="panel-learning" aria-labelledby="tab-learning" hidden>
       <p class="lede">Practice for school, made to feel like a game. Free, with no ads and no accounts.</p>
       <div id="learning" class="grid" aria-live="polite"></div>
-    </section>
+    </div>
   </main>
 
   <footer>&copy; <span id="year"></span> Cycle Start Studios</footer>
@@ -105,6 +121,47 @@
       games:    { grid: 'games',    folder: 'games/', button: 'Play' },
       learning: { grid: 'learning', folder: 'learn/', button: 'Start' },
     };
+
+    // ---- Tabs ----------------------------------------------------------
+    const tabs = [...document.querySelectorAll('[role="tab"]')];
+    const shown = () => tabs.filter((t) => !t.hidden);
+
+    function selectTab(name, { focus = false, updateUrl = true } = {}) {
+      for (const t of tabs) {
+        const on = t.dataset.section === name;
+        t.setAttribute('aria-selected', String(on));
+        t.tabIndex = on ? 0 : -1;
+        document.getElementById(t.getAttribute('aria-controls')).hidden = !on;
+        if (on && focus) t.focus();
+      }
+      // Games is the home view, so it keeps a clean URL; other tabs get a #hash
+      // that can be shared or bookmarked.
+      if (updateUrl) history.replaceState(null, '', name === 'games' ? location.pathname + location.search : '#' + name);
+    }
+
+    function tabFromUrl() {
+      const want = location.hash.slice(1);
+      return shown().some((t) => t.dataset.section === want) ? want : 'games';
+    }
+
+    for (const t of tabs) {
+      t.addEventListener('click', () => selectTab(t.dataset.section));
+      t.addEventListener('keydown', (e) => {
+        const list = shown();
+        const i = list.indexOf(t);
+        const next = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: list.length - 1 }[e.key];
+        if (next === undefined) return;
+        e.preventDefault();
+        selectTab(list[(next + list.length) % list.length].dataset.section, { focus: true });
+      });
+    }
+    addEventListener('hashchange', () => selectTab(tabFromUrl(), { updateUrl: false }));
+
+    function setCount(name, n) {
+      const c = document.querySelector(`#tab-${name} .count`);
+      c.textContent = n;
+      c.hidden = !n;
+    }
 
     function card(g, section) {
       const a = document.createElement('a');
@@ -134,12 +191,15 @@
         const grid = document.getElementById('games');
         if (!games.length) grid.outerHTML = '<div class="empty">No games yet. Check back soon.</div>';
         for (const g of games) grid.appendChild(card(g, SECTIONS.games));
+        setCount('games', games.length);
 
         if (learning.length) {
-          document.getElementById('learning-section').hidden = false;
+          document.getElementById('tab-learning').hidden = false;
           const lgrid = document.getElementById('learning');
           for (const g of learning) lgrid.appendChild(card(g, SECTIONS.learning));
+          setCount('learning', learning.length);
         }
+        selectTab(tabFromUrl(), { updateUrl: false });
       })
       .catch(() => {
         document.getElementById('games').outerHTML =
